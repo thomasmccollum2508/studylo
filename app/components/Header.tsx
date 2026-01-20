@@ -89,14 +89,18 @@ export default function Header() {
         {/* Right side: Login and Get Started buttons */}
         <div className="flex items-center gap-4 flex-shrink-0">
           {/* Login Button */}
-          <button className="text-gray-800 hover:text-gray-600 px-4 py-2 text-[15px] font-medium transition-all duration-300 hover:-translate-y-0.5">
-            Log In
-          </button>
+          <Link href="/dashboard">
+            <button className="text-gray-800 hover:text-gray-600 px-4 py-2 text-[15px] font-medium transition-all duration-300 hover:-translate-y-0.5">
+              Log In
+            </button>
+          </Link>
 
           {/* Get Started Button */}
-          <button className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-[15px] text-[15px] font-medium transition-all duration-300 shadow-[0_0_15px_rgba(0,85,255,0.4)] hover:shadow-[0_0_20px_rgba(0,85,255,0.5)] hover:-translate-y-1 hover:scale-105">
-            Get Started
-          </button>
+          <Link href="/dashboard">
+            <button className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-[15px] text-[15px] font-medium transition-all duration-300 shadow-[0_0_15px_rgba(0,85,255,0.4)] hover:shadow-[0_0_20px_rgba(0,85,255,0.5)] hover:-translate-y-1 hover:scale-105">
+              Get Started
+            </button>
+          </Link>
         </div>
       </div>
     </header>

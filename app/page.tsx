@@ -1,6 +1,7 @@
 import FAQ from './components/FAQ';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -21,9 +22,11 @@ export default function Home() {
           </p>
 
           {/* CTA Button */}
-          <button className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-10 py-4 rounded-[15px] text-lg mb-6 transition-all duration-300 shadow-[0_0_20px_rgba(0,85,255,0.4)] hover:shadow-[0_0_25px_rgba(0,85,255,0.6)] hover:-translate-y-1 hover:scale-105">
-            <span className="font-light">Get Started</span> - <span className="font-semibold">It's Free</span>
-          </button>
+          <Link href="/dashboard">
+            <button className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-10 py-4 rounded-[15px] text-lg mb-6 transition-all duration-300 shadow-[0_0_20px_rgba(0,85,255,0.4)] hover:shadow-[0_0_25px_rgba(0,85,255,0.6)] hover:-translate-y-1 hover:scale-105">
+              <span className="font-light">Get Started</span> - <span className="font-semibold">It's Free</span>
+            </button>
+          </Link>
 
           {/* Footer Text */}
           <p className="text-gray-600 text-sm">
@@ -581,12 +584,14 @@ export default function Home() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-            <button className="bg-white hover:bg-gray-50 text-[#0055FF] px-8 py-4 rounded-[15px] text-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 hover:scale-105 flex items-center gap-2">
-              Start Studying Free
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M7.5 15L12.5 10L7.5 5" stroke="#0055FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
+            <Link href="/dashboard">
+              <button className="bg-white hover:bg-gray-50 text-[#0055FF] px-8 py-4 rounded-[15px] text-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 hover:scale-105 flex items-center gap-2">
+                Start Studying Free
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.5 15L12.5 10L7.5 5" stroke="#0055FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </Link>
           </div>
 
           {/* Feature List */}
