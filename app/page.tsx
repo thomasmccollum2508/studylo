@@ -587,9 +587,6 @@ export default function Home() {
                 <path d="M7.5 15L12.5 10L7.5 5" stroke="#0055FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-            <button className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-[15px] text-lg font-medium transition-all duration-300 hover:bg-white/10 hover:-translate-y-1 hover:scale-105">
-              Try Demo
-            </button>
           </div>
 
           {/* Feature List */}

@@ -86,21 +86,12 @@ export default function Header() {
           </div>
         </nav>
 
-        {/* Right side: Language selector and Get Started button */}
-        <div className="flex items-center gap-6 flex-shrink-0">
-          {/* Language Selector */}
-          <div className="flex items-center gap-2 cursor-pointer transition-all duration-300 hover:-translate-y-0.5">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="8" cy="8" r="6.5" stroke="#4B5563" strokeWidth="1.2"/>
-              <path d="M8 1.5C9.2 3.2 9.75 5.2 9.75 8C9.75 10.8 9.2 12.8 8 14.5" stroke="#4B5563" strokeWidth="1.2"/>
-              <path d="M8 1.5C6.8 3.2 6.25 5.2 6.25 8C6.25 10.8 6.8 12.8 8 14.5" stroke="#4B5563" strokeWidth="1.2"/>
-              <path d="M1.5 8H14.5" stroke="#4B5563" strokeWidth="1.2"/>
-            </svg>
-            <span className="text-gray-800 text-[15px] font-medium">En</span>
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2.5 3.75L5 6.25L7.5 3.75" stroke="#4B5563" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
+        {/* Right side: Login and Get Started buttons */}
+        <div className="flex items-center gap-4 flex-shrink-0">
+          {/* Login Button */}
+          <button className="text-gray-800 hover:text-gray-600 px-4 py-2 text-[15px] font-medium transition-all duration-300 hover:-translate-y-0.5">
+            Log In
+          </button>
 
           {/* Get Started Button */}
           <button className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-[15px] text-[15px] font-medium transition-all duration-300 shadow-[0_0_15px_rgba(0,85,255,0.4)] hover:shadow-[0_0_20px_rgba(0,85,255,0.5)] hover:-translate-y-1 hover:scale-105">
