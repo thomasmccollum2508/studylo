@@ -129,7 +129,7 @@ export default function Dashboard() {
               {/* Main Column */}
               <div className="flex-1">
                 {/* AI-Powered Learning Banner */}
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-8 mb-6 shadow-sm">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-8 mb-6 shadow-sm border border-blue-100">
                   <h1 className="text-3xl font-bold text-gray-900 mb-3">Good evening, Alex! 👋</h1>
                   <p className="text-gray-700 text-lg">Ready to crush your study goals? Your AI study buddy is here to help you learn faster and remember longer.</p>
                 </div>
