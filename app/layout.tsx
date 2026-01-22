@@ -12,6 +12,7 @@ const inter = localFont({
 export const metadata: Metadata = {
   title: "StudyLo",
   description: "A Next.js application with TypeScript and TailwindCSS",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({

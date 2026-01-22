@@ -1,9 +1,92 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { Profile, StudySet } from '@/lib/types/database';
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function formatTimeAgo(dateStr: string) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return d.toLocaleDateString();
+}
+
+function subjectBadgeClass(subject: string): string {
+  const m: Record<string, string> = {
+    Chemistry: 'bg-green-50 text-green-700',
+    History: 'bg-orange-50 text-orange-700',
+    Languages: 'bg-purple-50 text-purple-700',
+    Mathematics: 'bg-blue-50 text-blue-700',
+    Biology: 'bg-green-50 text-green-700',
+  };
+  return m[subject] ?? 'bg-blue-50 text-blue-700';
+}
 
 export default function Dashboard() {
+  const [userName, setUserName] = useState<string>('');
+  const [studySets, setStudySets] = useState<StudySet[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          return;
+        }
+        const name = (user.user_metadata?.full_name as string) || user.email?.split('@')[0] || 'there';
+        setUserName(name);
+
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        if (profileData) setProfile(profileData as Profile);
+        else {
+          await supabase.from('profiles').upsert(
+            { id: user.id, display_name: name },
+            { onConflict: 'id' }
+          );
+          setProfile({ id: user.id, display_name: name, avatar_url: null, quizzes_done: 0, day_streak: 0, updated_at: new Date().toISOString() });
+        }
+
+        const { data: sets } = await supabase
+          .from('study_sets')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+        setStudySets((sets ?? []) as StudySet[]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const studySetsCount = studySets.length;
+  const flashcardsCount = studySets.reduce((s, x) => s + (x.card_count ?? 0), 0);
+  const quizzesDone = profile?.quizzes_done ?? 0;
+  const dayStreak = profile?.day_streak ?? 0;
+  const recentSets = studySets.slice(0, 4);
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Left Sidebar */}
@@ -130,13 +213,12 @@ export default function Dashboard() {
               <div className="flex-1">
                 {/* AI-Powered Learning Banner */}
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-8 mb-6 shadow-sm border border-blue-100">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-3">Good evening, Alex! 👋</h1>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-3">{loading ? 'Loading…' : `${greeting()}, ${userName || 'there'}! 👋`}</h1>
                   <p className="text-gray-700 text-lg">Ready to crush your study goals? Your AI study buddy is here to help you learn faster and remember longer.</p>
                 </div>
 
-                {/* Stats Cards */}
+                {/* Stats Cards - all start at 0, update from user data */}
                 <div className="grid grid-cols-4 gap-4 mb-8">
-                  {/* Study Sets */}
                   <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2 bg-blue-50 rounded-lg">
@@ -145,12 +227,10 @@ export default function Dashboard() {
                         </svg>
                       </div>
                     </div>
-                    <div className="text-3xl font-bold text-gray-900 mb-1">12</div>
+                    <div className="text-3xl font-bold text-gray-900 mb-1">{loading ? '—' : studySetsCount}</div>
                     <div className="text-gray-600 font-medium mb-1">Study Sets</div>
-                    <div className="text-sm text-gray-500">+2 this week</div>
+                    <div className="text-sm text-gray-500">Create sets to see progress</div>
                   </div>
-
-                  {/* Flashcards */}
                   <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2 bg-green-50 rounded-lg">
@@ -160,12 +240,10 @@ export default function Dashboard() {
                         </svg>
                       </div>
                     </div>
-                    <div className="text-3xl font-bold text-gray-900 mb-1">248</div>
+                    <div className="text-3xl font-bold text-gray-900 mb-1">{loading ? '—' : flashcardsCount}</div>
                     <div className="text-gray-600 font-medium mb-1">Flashcards</div>
-                    <div className="text-sm text-gray-500">+34 this week</div>
+                    <div className="text-sm text-gray-500">Add cards to study sets</div>
                   </div>
-
-                  {/* Quizzes Done */}
                   <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2 bg-purple-50 rounded-lg">
@@ -175,12 +253,10 @@ export default function Dashboard() {
                         </svg>
                       </div>
                     </div>
-                    <div className="text-3xl font-bold text-gray-900 mb-1">18</div>
+                    <div className="text-3xl font-bold text-gray-900 mb-1">{loading ? '—' : quizzesDone}</div>
                     <div className="text-gray-600 font-medium mb-1">Quizzes Done</div>
-                    <div className="text-sm text-gray-500">+5 this week</div>
+                    <div className="text-sm text-gray-500">Complete quizzes to count</div>
                   </div>
-
-                  {/* Day Streak */}
                   <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2 bg-orange-50 rounded-lg">
@@ -190,9 +266,9 @@ export default function Dashboard() {
                         </svg>
                       </div>
                     </div>
-                    <div className="text-3xl font-bold text-gray-900 mb-1">7</div>
+                    <div className="text-3xl font-bold text-gray-900 mb-1">{loading ? '—' : dayStreak}</div>
                     <div className="text-gray-600 font-medium mb-1">Day Streak</div>
-                    <div className="text-sm text-gray-500">Keep it up! 🔥</div>
+                    <div className="text-sm text-gray-500">{dayStreak > 0 ? 'Keep it up! 🔥' : 'Study daily to build streak'}</div>
                   </div>
                 </div>
 
@@ -205,7 +281,7 @@ export default function Dashboard() {
                       </svg>
                       <h2 className="text-xl font-bold text-gray-900">Create with AI</h2>
                     </div>
-                    <Link href="#" className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
+                    <Link href="/ai-generator" className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
                       View all
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -277,7 +353,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Recent Study Sets */}
+                {/* Recent Study Sets - from user data, empty state when none */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -286,7 +362,7 @@ export default function Dashboard() {
                       </svg>
                       <h2 className="text-xl font-bold text-gray-900">Recent Study Sets</h2>
                     </div>
-                    <Link href="#" className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
+                    <Link href="/my-study-sets" className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
                       View all
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -295,180 +371,56 @@ export default function Dashboard() {
                   </div>
 
                   <div className="space-y-3">
-                    {/* Study Set 1 */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="p-2 bg-blue-50 rounded-lg">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 mb-1">Organic Chemistry - Reactions</h3>
-                            <div className="flex items-center gap-3">
-                              <span className="px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full">Chemistry</span>
-                              <span className="text-sm text-gray-500">45 cards</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                              <path d="M8 4V8L11 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            </svg>
-                            2 hours ago
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-blue-600 rounded-full" style={{ width: '68%' }}></div>
-                            </div>
-                            <span className="text-sm text-gray-600 w-10">68%</span>
-                          </div>
-                          <button className="p-1 text-gray-400 hover:text-gray-600">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="10" cy="5" r="1" fill="currentColor"/>
-                              <circle cx="10" cy="10" r="1" fill="currentColor"/>
-                              <circle cx="10" cy="15" r="1" fill="currentColor"/>
-                            </svg>
-                          </button>
-                        </div>
+                    {loading ? (
+                      <div className="bg-white rounded-xl p-8 border border-gray-100 text-center text-gray-500">Loading…</div>
+                    ) : recentSets.length === 0 ? (
+                      <div className="bg-white rounded-xl p-12 border border-gray-100 text-center">
+                        <p className="text-gray-600 mb-4">No study sets yet. Create one to get started.</p>
+                        <Link href="/ai-generator" className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium">
+                          Create with AI
+                        </Link>
                       </div>
-                    </div>
-
-                    {/* Study Set 2 */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="p-2 bg-blue-50 rounded-lg">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 mb-1">World War II Timeline</h3>
-                            <div className="flex items-center gap-3">
-                              <span className="px-2 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">History</span>
-                              <span className="text-sm text-gray-500">32 cards</span>
+                    ) : (
+                      recentSets.map((set) => {
+                        const sub = set.subject || 'General';
+                        return (
+                          <div key={set.id} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4 flex-1">
+                                <div className="p-2 bg-blue-50 rounded-lg">
+                                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
+                                  </svg>
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-gray-900 mb-1">{set.title}</h3>
+                                  <div className="flex items-center gap-3">
+                                    <span className={`px-2 py-1 ${subjectBadgeClass(sub)} text-xs font-medium rounded-full`}>{sub}</span>
+                                    <span className="text-sm text-gray-500">{set.card_count ?? 0} cards</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2 text-sm text-gray-500">
+                                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                                    <path d="M8 4V8L11 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                  </svg>
+                                  {formatTimeAgo(set.updated_at)}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                              <path d="M8 4V8L11 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            </svg>
-                            Yesterday
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-blue-600 rounded-full" style={{ width: '85%' }}></div>
-                            </div>
-                            <span className="text-sm text-gray-600 w-10">85%</span>
-                          </div>
-                          <button className="p-1 text-gray-400 hover:text-gray-600">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="10" cy="5" r="1" fill="currentColor"/>
-                              <circle cx="10" cy="10" r="1" fill="currentColor"/>
-                              <circle cx="10" cy="15" r="1" fill="currentColor"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Study Set 3 */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="p-2 bg-blue-50 rounded-lg">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 mb-1">Spanish Vocabulary - Unit 5</h3>
-                            <div className="flex items-center gap-3">
-                              <span className="px-2 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">Languages</span>
-                              <span className="text-sm text-gray-500">60 cards</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                              <path d="M8 4V8L11 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            </svg>
-                            2 days ago
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-blue-600 rounded-full" style={{ width: '42%' }}></div>
-                            </div>
-                            <span className="text-sm text-gray-600 w-10">42%</span>
-                          </div>
-                          <button className="p-1 text-gray-400 hover:text-gray-600">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="10" cy="5" r="1" fill="currentColor"/>
-                              <circle cx="10" cy="10" r="1" fill="currentColor"/>
-                              <circle cx="10" cy="15" r="1" fill="currentColor"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Study Set 4 */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="p-2 bg-blue-50 rounded-lg">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 mb-1">Calculus Formulas</h3>
-                            <div className="flex items-center gap-3">
-                              <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">Mathematics</span>
-                              <span className="text-sm text-gray-500">28 cards</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                              <path d="M8 4V8L11 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            </svg>
-                            3 days ago
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-blue-600 rounded-full" style={{ width: '90%' }}></div>
-                            </div>
-                            <span className="text-sm text-gray-600 w-10">90%</span>
-                          </div>
-                          <button className="p-1 text-gray-400 hover:text-gray-600">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="10" cy="5" r="1" fill="currentColor"/>
-                              <circle cx="10" cy="10" r="1" fill="currentColor"/>
-                              <circle cx="10" cy="15" r="1" fill="currentColor"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Right Sidebar */}
               <div className="w-80">
-                {/* Continue Studying */}
+                {/* Continue Studying - empty until user has progress */}
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-4">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -476,69 +428,13 @@ export default function Dashboard() {
                     </svg>
                     <h2 className="text-lg font-bold text-gray-900">Continue Studying</h2>
                   </div>
-
-                  <div className="space-y-3">
-                    {/* Continue Item 1 */}
-                    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="3" y="5" width="14" height="10" rx="2" stroke="#0055FF" strokeWidth="1.5"/>
-                            <path d="M6 3H14" stroke="#0055FF" strokeWidth="1.5" strokeLinecap="round"/>
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">Organic Chemistry</h3>
-                          <p className="text-sm text-gray-500">23/45 · Left off 2h ago</p>
-                        </div>
-                      </div>
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-600 rounded-full" style={{ width: '51%' }}></div>
-                      </div>
-                    </div>
-
-                    {/* Continue Item 2 */}
-                    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="p-2 bg-purple-50 rounded-lg">
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="10" cy="10" r="7" stroke="#8B5CF6" strokeWidth="1.5"/>
-                            <path d="M10 7V10" stroke="#8B5CF6" strokeWidth="1.5" strokeLinecap="round"/>
-                            <circle cx="10" cy="13" r="0.5" fill="#8B5CF6"/>
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">WWII Quiz</h3>
-                          <p className="text-sm text-gray-500">8/12 · Left off yesterday</p>
-                        </div>
-                      </div>
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-600 rounded-full" style={{ width: '67%' }}></div>
-                      </div>
-                    </div>
-
-                    {/* Continue Item 3 */}
-                    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="3" y="5" width="14" height="10" rx="2" stroke="#0055FF" strokeWidth="1.5"/>
-                            <path d="M6 3H14" stroke="#0055FF" strokeWidth="1.5" strokeLinecap="round"/>
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">Spanish Vocab</h3>
-                          <p className="text-sm text-gray-500">15/60 · Left off 3 days ago</p>
-                        </div>
-                      </div>
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-600 rounded-full" style={{ width: '25%' }}></div>
-                      </div>
-                    </div>
+                  <div className="bg-white rounded-xl p-6 border border-gray-100 text-center">
+                    <p className="text-sm text-gray-500 mb-3">No study in progress.</p>
+                    <p className="text-xs text-gray-400">Start a set or quiz to see it here.</p>
                   </div>
                 </div>
 
-                {/* AI Suggestions */}
+                {/* AI Suggestions - empty until user has data */}
                 <div>
                   <div className="mb-3">
                     <div className="flex items-center gap-2 mb-1">
@@ -549,73 +445,12 @@ export default function Dashboard() {
                     </div>
                     <p className="text-sm text-gray-500">Smart actions based on your study habits</p>
                   </div>
-
-                  <div className="space-y-3">
-                    {/* Suggestion 1 */}
-                    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="p-2 bg-purple-50 rounded-lg">
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M6 4H10C11.1046 4 12 4.89543 12 6V16C12 17.1046 11.1046 18 10 18H6C4.89543 18 4 17.1046 4 16V6C4 4.89543 4.89543 4 6 4Z" stroke="#8B5CF6" strokeWidth="1.5"/>
-                            <rect x="8" y="2" width="4" height="2" rx="0.5" stroke="#8B5CF6" strokeWidth="1.5"/>
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">Turn notes into a test</h3>
-                          <p className="text-sm text-gray-500 mb-3">Your Chemistry notes are ready for a quiz</p>
-                          <button className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M8 2L9 6L11 3L10 7H11L8 14L7 10L5 13L6 9H5L8 2Z" fill="currentColor"/>
-                            </svg>
-                            Generate Quiz
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Suggestion 2 */}
-                    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="p-2 bg-orange-50 rounded-lg">
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M16 10C16 13.3137 13.3137 16 10 16C6.68629 16 4 13.3137 4 10C4 6.68629 6.68629 4 10 4" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round"/>
-                            <path d="M16 4V8H12" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">Revise yesterday's deck</h3>
-                          <p className="text-sm text-gray-500 mb-3">Review 12 cards from History</p>
-                          <button className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M8 2L9 6L11 3L10 7H11L8 14L7 10L5 13L6 9H5L8 2Z" fill="currentColor"/>
-                            </svg>
-                            Start Review
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Suggestion 3 */}
-                    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="p-2 bg-green-50 rounded-lg">
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="3" y="5" width="14" height="10" rx="2" stroke="#10B981" strokeWidth="1.5"/>
-                            <path d="M6 3H14" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round"/>
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">Generate more flashcards</h3>
-                          <p className="text-sm text-gray-500 mb-3">Expand your Spanish set with AI</p>
-                          <button className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M8 2L9 6L11 3L10 7H11L8 14L7 10L5 13L6 9H5L8 2Z" fill="currentColor"/>
-                            </svg>
-                            Create Cards
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="bg-white rounded-xl p-6 border border-gray-100 text-center">
+                    <p className="text-sm text-gray-500 mb-3">No suggestions yet.</p>
+                    <p className="text-xs text-gray-400">Create study sets and we&apos;ll recommend next steps.</p>
+                    <Link href="/ai-generator" className="inline-block mt-3 text-blue-600 hover:text-blue-700 font-medium text-sm">
+                      Create with AI →
+                    </Link>
                   </div>
                 </div>
               </div>

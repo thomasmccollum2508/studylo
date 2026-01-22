@@ -1,11 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 export default function Header() {
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [solutionsOpen, setSolutionsOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function signOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/');
+    router.refresh();
+  }
 
   return (
     <header className="w-full border-b border-gray-200 bg-white sticky top-0 z-50">
@@ -86,21 +105,37 @@ export default function Header() {
           </div>
         </nav>
 
-        {/* Right side: Login and Get Started buttons */}
+        {/* Right side: Auth */}
         <div className="flex items-center gap-4 flex-shrink-0">
-          {/* Login Button */}
-          <Link href="/dashboard">
-            <button className="text-gray-800 hover:text-gray-600 px-4 py-2 text-[15px] font-medium transition-all duration-300 hover:-translate-y-0.5">
-              Log In
-            </button>
-          </Link>
-
-          {/* Get Started Button */}
-          <Link href="/dashboard">
-            <button className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-[15px] text-[15px] font-medium transition-all duration-300 shadow-[0_0_15px_rgba(0,85,255,0.4)] hover:shadow-[0_0_20px_rgba(0,85,255,0.5)] hover:-translate-y-1 hover:scale-105">
-              Get Started
-            </button>
-          </Link>
+          {user ? (
+            <>
+              <Link href="/dashboard" className="text-gray-800 hover:text-gray-600 px-4 py-2 text-[15px] font-medium transition-all duration-300 hover:-translate-y-0.5">
+                Dashboard
+              </Link>
+              <span className="text-gray-500 text-sm max-w-[140px] truncate" title={user.email ?? undefined}>
+                {user.email}
+              </span>
+              <button
+                onClick={signOut}
+                className="text-gray-600 hover:text-gray-800 px-4 py-2 text-[15px] font-medium transition-all duration-300 hover:-translate-y-0.5"
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login">
+                <button className="text-gray-800 hover:text-gray-600 px-4 py-2 text-[15px] font-medium transition-all duration-300 hover:-translate-y-0.5">
+                  Log In
+                </button>
+              </Link>
+              <Link href="/signup">
+                <button className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-[15px] text-[15px] font-medium transition-all duration-300 shadow-[0_0_15px_rgba(0,85,255,0.4)] hover:shadow-[0_0_20px_rgba(0,85,255,0.5)] hover:-translate-y-1 hover:scale-105">
+                  Get Started
+                </button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

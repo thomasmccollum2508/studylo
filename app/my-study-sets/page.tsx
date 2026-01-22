@@ -1,8 +1,44 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { StudySet } from '@/lib/types/database';
+
+function subjectBadgeClass(subject: string): string {
+  const m: Record<string, string> = {
+    Chemistry: 'bg-green-50 text-green-700',
+    History: 'bg-orange-50 text-orange-700',
+    Languages: 'bg-purple-50 text-purple-700',
+    Mathematics: 'bg-blue-50 text-blue-700',
+    Biology: 'bg-green-50 text-green-700',
+  };
+  return m[subject] ?? 'bg-blue-50 text-blue-700';
+}
 
 export default function MyStudySets() {
+  const [studySets, setStudySets] = useState<StudySet[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('study_sets')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+        setStudySets((data ?? []) as StudySet[]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Left Sidebar */}
@@ -126,45 +162,51 @@ export default function MyStudySets() {
           <div className="max-w-6xl">
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-3xl font-bold text-gray-900">My Study Sets</h1>
-              <button className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2">
+              <Link href="/ai-generator" className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
                 Create Study Set
-              </button>
+              </Link>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Study Set Cards */}
-              {[
-                { title: 'Organic Chemistry - Reactions', subject: 'Chemistry', color: 'green', cards: 45, progress: 68 },
-                { title: 'World War II Timeline', subject: 'History', color: 'orange', cards: 32, progress: 85 },
-                { title: 'Spanish Vocabulary - Unit 5', subject: 'Languages', color: 'purple', cards: 60, progress: 42 },
-                { title: 'Calculus Formulas', subject: 'Mathematics', color: 'blue', cards: 28, progress: 90 },
-                { title: 'Biology - Cell Structure', subject: 'Biology', color: 'green', cards: 38, progress: 55 },
-                { title: 'French Grammar Basics', subject: 'Languages', color: 'purple', cards: 52, progress: 30 },
-              ].map((set, index) => (
-                <div key={index} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
-                      </svg>
-                    </div>
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">{set.title}</h3>
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className={`px-2 py-1 bg-${set.color}-50 text-${set.color}-700 text-xs font-medium rounded-full`}>{set.subject}</span>
-                    <span className="text-sm text-gray-500">{set.cards} cards</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-600 rounded-full" style={{ width: `${set.progress}%` }}></div>
-                    </div>
-                    <span className="text-sm text-gray-600">{set.progress}%</span>
-                  </div>
+              {loading ? (
+                <div className="col-span-full bg-white rounded-xl p-12 border border-gray-100 text-center text-gray-500">Loading…</div>
+              ) : studySets.length === 0 ? (
+                <div className="col-span-full bg-white rounded-xl p-12 border border-gray-100 text-center">
+                  <p className="text-gray-600 mb-4">No study sets yet. Create one to get started.</p>
+                  <Link href="/ai-generator" className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium">
+                    Create with AI
+                  </Link>
                 </div>
-              ))}
+              ) : (
+                studySets.map((set) => {
+                  const sub = set.subject || 'General';
+                  return (
+                    <div key={set.id} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <h3 className="font-semibold text-gray-900 mb-2">{set.title}</h3>
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className={`px-2 py-1 ${subjectBadgeClass(sub)} text-xs font-medium rounded-full`}>{sub}</span>
+                        <span className="text-sm text-gray-500">{set.card_count ?? 0} cards</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-600 rounded-full" style={{ width: '0%' }}></div>
+                        </div>
+                        <span className="text-sm text-gray-600">0%</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </main>
