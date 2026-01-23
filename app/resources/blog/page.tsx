@@ -111,7 +111,7 @@ export default function Blog() {
               <input 
                 type="email" 
                 placeholder="Enter your email" 
-                className="w-full px-6 py-3 rounded-[15px] border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0055FF]"
+                className="w-full px-6 py-3 rounded-[15px] border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0055FF] text-black"
               />
               <button className="w-full sm:w-auto bg-[#0055FF] hover:bg-[#0044CC] text-white px-8 py-3 rounded-[15px] font-medium transition-all duration-300 shadow-[0_0_15px_rgba(0,85,255,0.4)] hover:shadow-[0_0_20px_rgba(0,85,255,0.5)] hover:-translate-y-1">
                 Subscribe

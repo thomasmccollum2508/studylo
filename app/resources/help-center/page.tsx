@@ -87,7 +87,7 @@ export default function HelpCenter() {
               <input 
                 type="text" 
                 placeholder="Search for help articles..." 
-                className="w-full px-6 py-4 pr-12 rounded-[15px] border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0055FF] text-lg"
+                className="w-full px-6 py-4 pr-12 rounded-[15px] border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0055FF] text-lg text-black"
               />
               <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

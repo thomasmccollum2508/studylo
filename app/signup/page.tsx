@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
-  const router = useRouter();
+  const [name, setName] = useState('');
+  const [surname, setSurname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,18 +17,41 @@ export default function SignupPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback` },
-    });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
+    
+    try {
+      // Check if environment variables are set
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        throw new Error('Supabase configuration is missing. Please check your environment variables.');
+      }
+      
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+          data: {
+            full_name: `${name.trim()} ${surname.trim()}`.trim(),
+            name: name.trim(),
+            surname: surname.trim(),
+          },
+        },
+      });
+      
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+      
+      // Signup successful
+      setSuccess(true);
+      setLoading(false);
+    } catch (err) {
+      console.error('Signup error:', err);
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
+      setLoading(false);
     }
-    setSuccess(true);
   }
 
   if (success) {
@@ -71,6 +94,36 @@ export default function SignupPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                Name
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoComplete="given-name"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none text-black"
+                placeholder="Your first name"
+              />
+            </div>
+            <div>
+              <label htmlFor="surname" className="block text-sm font-medium text-gray-700 mb-1">
+                Surname
+              </label>
+              <input
+                id="surname"
+                type="text"
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+                required
+                autoComplete="family-name"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none text-black"
+                placeholder="Your last name"
+              />
+            </div>
+            <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
@@ -80,7 +133,8 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none"
+                autoComplete="email"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none text-black"
                 placeholder="you@example.com"
               />
             </div>
@@ -95,7 +149,8 @@ export default function SignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none"
+                autoComplete="new-password"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none text-black"
                 placeholder="At least 6 characters"
               />
             </div>

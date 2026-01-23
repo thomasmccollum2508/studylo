@@ -81,7 +81,7 @@ export default function StudySets() {
               <input 
                 type="text" 
                 placeholder="Search by topic, course, or keyword..." 
-                className="w-full px-6 py-4 pr-14 rounded-[15px] border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0055FF] focus:border-transparent text-lg"
+                className="w-full px-6 py-4 pr-14 rounded-[15px] border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0055FF] focus:border-transparent text-lg text-black"
               />
               <button className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#0055FF] hover:bg-[#0044CC] text-white p-3 rounded-[12px] transition-colors">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

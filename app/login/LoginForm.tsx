@@ -18,16 +18,47 @@ export default function LoginForm() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
+    
+    try {
+      // Check if environment variables are set
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        throw new Error('Supabase configuration is missing. Please check your environment variables.');
+      }
+      
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+      
+      if (data?.session) {
+        const next = searchParams.get('next') ?? '/dashboard';
+        // Use window.location as fallback if router.push doesn't work
+        try {
+          router.push(next);
+          router.refresh();
+          // Fallback navigation after a short delay
+          setTimeout(() => {
+            if (window.location.pathname === '/login') {
+              window.location.href = next;
+            }
+          }, 500);
+        } catch (navError) {
+          console.error('Navigation error:', navError);
+          window.location.href = next;
+        }
+      } else {
+        setError('Login failed. No session created. Please try again.');
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
+      setLoading(false);
     }
-    const next = searchParams.get('next') ?? '/dashboard';
-    router.push(next);
-    router.refresh();
   }
 
   return (
@@ -57,7 +88,7 @@ export default function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none text-black"
                 placeholder="you@example.com"
               />
             </div>
@@ -71,7 +102,7 @@ export default function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#0055FF] focus:border-transparent outline-none text-black"
                 placeholder="••••••••"
               />
             </div>
