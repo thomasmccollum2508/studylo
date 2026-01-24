@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile, StudySet } from '@/lib/types/database';
+import { useTheme } from '@/app/providers/ThemeProvider';
 
 function greeting() {
   const h = new Date().getHours();
@@ -28,13 +29,13 @@ function formatTimeAgo(dateStr: string) {
 
 function subjectBadgeClass(subject: string): string {
   const m: Record<string, string> = {
-    Chemistry: 'bg-green-50 text-green-700',
-    History: 'bg-orange-50 text-orange-700',
-    Languages: 'bg-purple-50 text-purple-700',
-    Mathematics: 'bg-blue-50 text-blue-700',
-    Biology: 'bg-green-50 text-green-700',
+    Chemistry: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+    History: 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+    Languages: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+    Mathematics: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+    Biology: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400',
   };
-  return m[subject] ?? 'bg-blue-50 text-blue-700';
+  return m[subject] ?? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
 }
 
 export default function Dashboard() {
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [studySets, setStudySets] = useState<StudySet[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     async function load() {
@@ -88,23 +90,23 @@ export default function Dashboard() {
   const recentSets = studySets.slice(0, 4);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       {/* Left Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-colors duration-300">
         {/* Logo */}
         <div className="p-6">
           <Link href="/" className="flex items-center">
             <img 
-              src="/studylo%20logo%202.png" 
+              src={theme === 'dark' ? "/studylo%20logo%20dark.png" : "/studylo%20logo%202.png"}
               alt="StudyLo Logo" 
-              className="h-10 w-auto"
+              className="h-10 w-auto transition-opacity duration-300"
             />
           </Link>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3">
-          <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 mb-1 bg-blue-50 text-blue-600 rounded-lg font-medium">
+          <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 mb-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg font-medium transition-colors">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
               <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
@@ -114,14 +116,14 @@ export default function Dashboard() {
             Dashboard
           </Link>
           
-          <Link href="/my-study-sets" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 hover:bg-gray-50 rounded-lg font-medium">
+          <Link href="/my-study-sets" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             My Study Sets
           </Link>
 
-          <Link href="/flashcards" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 hover:bg-gray-50 rounded-lg font-medium">
+          <Link href="/flashcards" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
               <path d="M6 3H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -129,7 +131,7 @@ export default function Dashboard() {
             Flashcards
           </Link>
 
-          <Link href="/quizzes" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 hover:bg-gray-50 rounded-lg font-medium">
+          <Link href="/quizzes" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/>
               <path d="M10 7V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -138,15 +140,7 @@ export default function Dashboard() {
             Quizzes
           </Link>
 
-          <Link href="/subjects" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 hover:bg-gray-50 rounded-lg font-medium">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 6C4 4.89543 4.89543 4 6 4H14C15.1046 4 16 4.89543 16 6V14C16 15.1046 15.1046 16 14 16H6C4.89543 16 4 15.1046 4 14V6Z" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M8 4V16" stroke="currentColor" strokeWidth="1.5"/>
-            </svg>
-            Subjects
-          </Link>
-
-          <Link href="/ai-generator" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 hover:bg-gray-50 rounded-lg font-medium">
+          <Link href="/ai-generator" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
             </svg>
@@ -156,7 +150,7 @@ export default function Dashboard() {
 
         {/* Settings at bottom */}
         <div className="p-3">
-          <Link href="/settings" className="flex items-center gap-3 px-3 py-2.5 text-gray-700 hover:bg-gray-50 rounded-lg font-medium">
+          <Link href="/settings" className="flex items-center gap-3 px-3 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z" stroke="currentColor" strokeWidth="1.5"/>
               <path d="M16 10C16 10 15 12 10 12C5 12 4 10 4 10C4 10 5 8 10 8C15 8 16 10 16 10Z" stroke="currentColor" strokeWidth="1.5"/>
@@ -169,33 +163,84 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 transition-colors duration-300">
           <div className="flex items-center justify-between">
             {/* Search Bar */}
             <div className="flex-1 max-w-2xl">
               <div className="relative">
-                <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M14 14L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
                 <input
                   type="text"
                   placeholder="Search study sets, flashcards, quizzes..."
-                  className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full pl-12 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
                 />
               </div>
             </div>
 
             {/* Right Icons */}
             <div className="flex items-center gap-4 ml-6">
-              <button className="relative p-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="relative p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 active:scale-95 group"
+                aria-label="Toggle dark mode"
+                type="button"
+              >
+                <div className="relative w-5 h-5 flex items-center justify-center">
+                  {/* Sun Icon (Light Mode) */}
+                  <svg
+                    className={`absolute w-5 h-5 transition-all duration-500 ${
+                      theme === 'light'
+                        ? 'opacity-100 rotate-0 scale-100'
+                        : 'opacity-0 rotate-90 scale-0'
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                    />
+                  </svg>
+                  {/* Moon Icon (Dark Mode) */}
+                  <svg
+                    className={`absolute w-5 h-5 transition-all duration-500 ${
+                      theme === 'dark'
+                        ? 'opacity-100 rotate-0 scale-100'
+                        : 'opacity-0 -rotate-90 scale-0'
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                    />
+                  </svg>
+                </div>
+                {/* Glow effect on hover */}
+                <span className="absolute inset-0 rounded-lg bg-blue-500 opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-300 pointer-events-none"></span>
+              </button>
+
+              <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M10 3C10 3 8 3 8 5C8 6 8 10 6 10C4 10 4 8 4 8V12C4 12 4 10 6 10C8 10 8 14 8 15C8 17 10 17 10 17C10 17 12 17 12 15C12 14 12 10 14 10C16 10 16 12 16 12V8C16 8 16 10 14 10C12 10 12 6 12 5C12 3 10 3 10 3Z" stroke="currentColor" strokeWidth="1.5"/>
                 </svg>
                 <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
               </button>
               
-              <button className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+              <button className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg transition-colors">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M5 17C5 14.2386 7.23858 12 10 12C12.7614 12 15 14.2386 15 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -212,63 +257,63 @@ export default function Dashboard() {
               {/* Main Column */}
               <div className="flex-1">
                 {/* AI-Powered Learning Banner */}
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-8 mb-6 shadow-sm border border-blue-100">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-3">{loading ? 'Loading…' : `${greeting()}, ${userName || 'there'}! 👋`}</h1>
-                  <p className="text-gray-700 text-lg">Ready to crush your study goals? Your AI study buddy is here to help you learn faster and remember longer.</p>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl p-8 mb-6 shadow-sm border border-blue-100 dark:border-blue-800/50 transition-colors">
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">{loading ? 'Loading…' : `${greeting()}, ${userName || 'there'}! 👋`}</h1>
+                  <p className="text-gray-700 dark:text-gray-300 text-lg">Ready to crush your study goals? Your AI study buddy is here to help you learn faster and remember longer.</p>
                 </div>
 
                 {/* Stats Cards - all start at 0, update from user data */}
                 <div className="grid grid-cols-4 gap-4 mb-8">
-                  <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="p-2 bg-blue-50 rounded-lg">
+                      <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M5 5.5C5 4.67157 5.67157 4 6.5 4H17.5C18.3284 4 19 4.67157 19 5.5V20L12 17L5 20V5.5Z" stroke="#0055FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       </div>
                     </div>
-                    <div className="text-3xl font-bold text-gray-900 mb-1">{loading ? '—' : studySetsCount}</div>
-                    <div className="text-gray-600 font-medium mb-1">Study Sets</div>
-                    <div className="text-sm text-gray-500">Create sets to see progress</div>
+                    <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">{loading ? '—' : studySetsCount}</div>
+                    <div className="text-gray-600 dark:text-gray-400 font-medium mb-1">Study Sets</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-500">Create sets to see progress</div>
                   </div>
-                  <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="p-2 bg-green-50 rounded-lg">
+                      <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <rect x="4" y="6" width="16" height="12" rx="2" stroke="#10B981" strokeWidth="2"/>
                           <path d="M7 4H17" stroke="#10B981" strokeWidth="2" strokeLinecap="round"/>
                         </svg>
                       </div>
                     </div>
-                    <div className="text-3xl font-bold text-gray-900 mb-1">{loading ? '—' : flashcardsCount}</div>
-                    <div className="text-gray-600 font-medium mb-1">Flashcards</div>
-                    <div className="text-sm text-gray-500">Add cards to study sets</div>
+                    <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">{loading ? '—' : flashcardsCount}</div>
+                    <div className="text-gray-600 dark:text-gray-400 font-medium mb-1">Flashcards</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-500">Add cards to study sets</div>
                   </div>
-                  <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="p-2 bg-purple-50 rounded-lg">
+                      <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <circle cx="12" cy="12" r="9" stroke="#8B5CF6" strokeWidth="2"/>
                           <path d="M8 12L11 15L16 9" stroke="#8B5CF6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       </div>
                     </div>
-                    <div className="text-3xl font-bold text-gray-900 mb-1">{loading ? '—' : quizzesDone}</div>
-                    <div className="text-gray-600 font-medium mb-1">Quizzes Done</div>
-                    <div className="text-sm text-gray-500">Complete quizzes to count</div>
+                    <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">{loading ? '—' : quizzesDone}</div>
+                    <div className="text-gray-600 dark:text-gray-400 font-medium mb-1">Quizzes Done</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-500">Complete quizzes to count</div>
                   </div>
-                  <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="p-2 bg-orange-50 rounded-lg">
+                      <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M12 3C12 3 8 6 8 10C8 13 10 15 12 15C14 15 16 13 16 10C16 6 12 3 12 3Z" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           <path d="M12 15C12 15 10 16 10 18C10 19.5 11 21 12 21C13 21 14 19.5 14 18C14 16 12 15 12 15Z" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       </div>
                     </div>
-                    <div className="text-3xl font-bold text-gray-900 mb-1">{loading ? '—' : dayStreak}</div>
-                    <div className="text-gray-600 font-medium mb-1">Day Streak</div>
-                    <div className="text-sm text-gray-500">{dayStreak > 0 ? 'Keep it up! 🔥' : 'Study daily to build streak'}</div>
+                    <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">{loading ? '—' : dayStreak}</div>
+                    <div className="text-gray-600 dark:text-gray-400 font-medium mb-1">Day Streak</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-500">{dayStreak > 0 ? 'Keep it up! 🔥' : 'Study daily to build streak'}</div>
                   </div>
                 </div>
 
@@ -279,9 +324,9 @@ export default function Dashboard() {
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" fill="#0055FF"/>
                       </svg>
-                      <h2 className="text-xl font-bold text-gray-900">Create with AI</h2>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Create with AI</h2>
                     </div>
-                    <Link href="/ai-generator" className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
+                    <Link href="/ai-generator" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm flex items-center gap-1 transition-colors">
                       View all
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -291,64 +336,64 @@ export default function Dashboard() {
 
                   <div className="grid grid-cols-5 gap-4">
                     {/* Upload Notes */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
+                      <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M12 15V3M12 3L8 7M12 3L16 7" stroke="#0055FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           <path d="M3 15V18C3 19.6569 4.34315 21 6 21H18C19.6569 21 21 19.6569 21 18V15" stroke="#0055FF" strokeWidth="2" strokeLinecap="round"/>
                         </svg>
                       </div>
-                      <h3 className="font-semibold text-gray-900 text-center mb-2">Upload Notes</h3>
-                      <p className="text-xs text-gray-500 text-center">Drop your PDFs, docs, or images</p>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">Upload Notes</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Drop your PDFs, docs, or images</p>
                     </div>
 
                     {/* Paste Text */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
+                      <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15" stroke="#8B5CF6" strokeWidth="2"/>
                           <rect x="9" y="3" width="6" height="4" rx="1" stroke="#8B5CF6" strokeWidth="2"/>
                         </svg>
                       </div>
-                      <h3 className="font-semibold text-gray-900 text-center mb-2">Paste Text</h3>
-                      <p className="text-xs text-gray-500 text-center">Copy-paste any text content</p>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">Paste Text</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Copy-paste any text content</p>
                     </div>
 
                     {/* AI Flashcards */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
+                      <div className="w-12 h-12 bg-green-50 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <rect x="4" y="6" width="16" height="12" rx="2" stroke="#10B981" strokeWidth="2"/>
                           <path d="M7 4H17" stroke="#10B981" strokeWidth="2" strokeLinecap="round"/>
                         </svg>
                       </div>
-                      <h3 className="font-semibold text-gray-900 text-center mb-2">AI Flashcards</h3>
-                      <p className="text-xs text-gray-500 text-center">Generate smart flashcards instantly</p>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">AI Flashcards</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Generate smart flashcards instantly</p>
                     </div>
 
                     {/* AI Quizzes */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
+                      <div className="w-12 h-12 bg-orange-50 dark:bg-orange-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <circle cx="12" cy="12" r="9" stroke="#F97316" strokeWidth="2"/>
                           <path d="M12 8V12" stroke="#F97316" strokeWidth="2" strokeLinecap="round"/>
                           <circle cx="12" cy="16" r="0.5" fill="#F97316" stroke="#F97316"/>
                         </svg>
                       </div>
-                      <h3 className="font-semibold text-gray-900 text-center mb-2">AI Quizzes</h3>
-                      <p className="text-xs text-gray-500 text-center">Create practice tests in seconds</p>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">AI Quizzes</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Create practice tests in seconds</p>
                     </div>
 
                     {/* AI Study Sets */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
+                      <div className="w-12 h-12 bg-red-50 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M4 7C4 5.89543 4.89543 5 6 5H18C19.1046 5 20 5.89543 20 7V17C20 18.1046 19.1046 19 18 19H6C4.89543 19 4 18.1046 4 17V7Z" stroke="#EF4444" strokeWidth="2"/>
                           <path d="M9 5V19" stroke="#EF4444" strokeWidth="2"/>
                         </svg>
                       </div>
-                      <h3 className="font-semibold text-gray-900 text-center mb-2">AI Study Sets</h3>
-                      <p className="text-xs text-gray-500 text-center">Build complete study materials</p>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">AI Study Sets</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Build complete study materials</p>
                     </div>
                   </div>
                 </div>
@@ -360,9 +405,9 @@ export default function Dashboard() {
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
                       </svg>
-                      <h2 className="text-xl font-bold text-gray-900">Recent Study Sets</h2>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Study Sets</h2>
                     </div>
-                    <Link href="/my-study-sets" className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
+                    <Link href="/my-study-sets" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm flex items-center gap-1 transition-colors">
                       View all
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -372,10 +417,10 @@ export default function Dashboard() {
 
                   <div className="space-y-3">
                     {loading ? (
-                      <div className="bg-white rounded-xl p-8 border border-gray-100 text-center text-gray-500">Loading…</div>
+                      <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-100 dark:border-gray-700 text-center text-gray-500 dark:text-gray-400 transition-colors">Loading…</div>
                     ) : recentSets.length === 0 ? (
-                      <div className="bg-white rounded-xl p-12 border border-gray-100 text-center">
-                        <p className="text-gray-600 mb-4">No study sets yet. Create one to get started.</p>
+                      <div className="bg-white dark:bg-gray-800 rounded-xl p-12 border border-gray-100 dark:border-gray-700 text-center transition-colors">
+                        <p className="text-gray-600 dark:text-gray-400 mb-4">No study sets yet. Create one to get started.</p>
                         <Link href="/ai-generator" className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium">
                           Create with AI
                         </Link>
@@ -384,24 +429,24 @@ export default function Dashboard() {
                       recentSets.map((set) => {
                         const sub = set.subject || 'General';
                         return (
-                          <div key={set.id} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div key={set.id} className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4 flex-1">
-                                <div className="p-2 bg-blue-50 rounded-lg">
+                                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
                                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
                                   </svg>
                                 </div>
                                 <div className="flex-1">
-                                  <h3 className="font-semibold text-gray-900 mb-1">{set.title}</h3>
+                                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{set.title}</h3>
                                   <div className="flex items-center gap-3">
                                     <span className={`px-2 py-1 ${subjectBadgeClass(sub)} text-xs font-medium rounded-full`}>{sub}</span>
-                                    <span className="text-sm text-gray-500">{set.card_count ?? 0} cards</span>
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">{set.card_count ?? 0} cards</span>
                                   </div>
                                 </div>
                               </div>
                               <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
                                     <path d="M8 4V8L11 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -426,11 +471,11 @@ export default function Dashboard() {
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M6 4L14 10L6 16V4Z" fill="#10B981"/>
                     </svg>
-                    <h2 className="text-lg font-bold text-gray-900">Continue Studying</h2>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Continue Studying</h2>
                   </div>
-                  <div className="bg-white rounded-xl p-6 border border-gray-100 text-center">
-                    <p className="text-sm text-gray-500 mb-3">No study in progress.</p>
-                    <p className="text-xs text-gray-400">Start a set or quiz to see it here.</p>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 text-center transition-colors">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No study in progress.</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Start a set or quiz to see it here.</p>
                   </div>
                 </div>
 
@@ -441,14 +486,14 @@ export default function Dashboard() {
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" fill="#0055FF"/>
                       </svg>
-                      <h2 className="text-lg font-bold text-gray-900">AI Suggestions</h2>
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">AI Suggestions</h2>
                     </div>
-                    <p className="text-sm text-gray-500">Smart actions based on your study habits</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Smart actions based on your study habits</p>
                   </div>
-                  <div className="bg-white rounded-xl p-6 border border-gray-100 text-center">
-                    <p className="text-sm text-gray-500 mb-3">No suggestions yet.</p>
-                    <p className="text-xs text-gray-400">Create study sets and we&apos;ll recommend next steps.</p>
-                    <Link href="/ai-generator" className="inline-block mt-3 text-blue-600 hover:text-blue-700 font-medium text-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 text-center transition-colors">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No suggestions yet.</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Create study sets and we&apos;ll recommend next steps.</p>
+                    <Link href="/ai-generator" className="inline-block mt-3 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm transition-colors">
                       Create with AI →
                     </Link>
                   </div>

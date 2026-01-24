@@ -1,13 +1,25 @@
 'use client';
 
 import Link from 'next/link';
-import { useTheme } from '@/app/providers/ThemeProvider';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useTheme } from '@/app/providers/ThemeProvider';
 
-export default function AIGenerator() {
-  const { theme } = useTheme();
+type GenerationType = 'upload-notes' | 'paste-text' | 'flashcards' | 'quizzes' | 'study-sets';
+
+const TYPE_LABELS: Record<GenerationType, string> = {
+  'upload-notes': 'Upload Notes',
+  'paste-text': 'Paste Text',
+  'flashcards': 'AI Flashcards',
+  'quizzes': 'AI Quizzes',
+  'study-sets': 'AI Study Sets',
+};
+
+export default function CreatePage() {
+  const searchParams = useSearchParams();
   const router = useRouter();
+  const { theme } = useTheme();
+  const type = (searchParams.get('type') || 'upload-notes') as GenerationType;
   
   const [inputMethod, setInputMethod] = useState<'upload' | 'paste' | 'camera'>('upload');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -106,51 +118,18 @@ export default function AIGenerator() {
     setProcessing(true);
 
     try {
-      const formData = new FormData();
-      formData.append('inputMethod', inputMethod);
+      // TODO: Implement AI processing logic here
+      // For now, simulate processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      if (inputMethod === 'paste') {
-        formData.append('textContent', pastedText);
-      } else if (inputMethod === 'upload') {
-        uploadedFiles.forEach((file) => {
-          formData.append('files', file);
-        });
-      } else if (inputMethod === 'camera' && capturedImage) {
-        formData.append('imageData', capturedImage);
-      }
-
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData,
-      });
-
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        const text = await response.text();
-        throw new Error(`Server error: ${response.status} ${response.statusText}. ${text.substring(0, 200)}`);
-      }
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || `Failed to analyze content (${response.status})`);
-      }
-
-      // Store summary in sessionStorage and navigate to results page
-      const summaryText = data.summary;
-      sessionStorage.setItem('ai-summary', summaryText);
-      
-      // Navigate to results page with summary in URL (for sharing/bookmarking)
-      const encodedSummary = encodeURIComponent(summaryText);
-      router.push(`/ai-generator/results?summary=${encodedSummary}`);
+      // After processing, redirect to results or back to dashboard
+      router.push('/dashboard');
     } catch (err) {
-      console.error('Error analyzing content:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate content. Please try again.';
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Failed to generate content. Please try again.');
       setProcessing(false);
     }
   };
-  
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       {/* Left Sidebar */}
@@ -223,43 +202,23 @@ export default function AIGenerator() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 transition-colors duration-300">
           <div className="flex items-center justify-between">
-            <div className="flex-1 max-w-2xl">
-              <div className="relative">
-                <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M14 14L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search study sets, flashcards, quizzes..."
-                  className="w-full pl-12 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
-                />
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create {TYPE_LABELS[type]}</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Upload, paste, or capture your content</p>
             </div>
-
-            <div className="flex items-center gap-4 ml-6">
-              <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M10 3C10 3 8 3 8 5C8 6 8 10 6 10C4 10 4 8 4 8V12C4 12 4 10 6 10C8 10 8 14 8 15C8 17 10 17 10 17C10 17 12 17 12 15C12 14 12 10 14 10C16 10 16 12 16 12V8C16 8 16 10 14 10C12 10 12 6 12 5C12 3 10 3 10 3Z" stroke="currentColor" strokeWidth="1.5"/>
-                </svg>
-                <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
-              </button>
-              
-              <button className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg transition-colors">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M5 17C5 14.2386 7.23858 12 10 12C12.7614 12 15 14.2386 15 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </button>
-            </div>
+            <Link 
+              href="/ai-generator"
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 18L18 6M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </Link>
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-8">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">AI Generator</h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-8">Create study materials instantly with AI</p>
-            
             {/* Input Method Tabs */}
             <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
               <button
@@ -480,19 +439,18 @@ export default function AIGenerator() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Analyzing...
+                    Processing...
                   </>
                 ) : (
                   <>
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
                     </svg>
-                    Analyze & Summarize
+                    Generate {TYPE_LABELS[type]}
                   </>
                 )}
               </button>
             </div>
-
           </div>
         </main>
       </div>
