@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { StudySet } from '@/lib/types/database';
@@ -23,6 +24,7 @@ function subjectBadgeClass(subject: string): string {
 }
 
 export default function MyStudySets() {
+  const router = useRouter();
   const { theme } = useTheme();
   const [studySets, setStudySets] = useState<StudySet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -427,10 +429,14 @@ export default function MyStudySets() {
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                             {subjectStudySets.map((set) => {
                               return (
-                                <Link 
-                                  key={set.id} 
-                                  href={`/my-study-sets/${set.id}`}
-                                  className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-all cursor-pointer block"
+                                <button
+                                  key={set.id}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`/my-study-sets/${set.id}`);
+                                  }}
+                                  className="relative z-10 w-full text-left bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-all cursor-pointer block"
                                 >
                                   <div className="flex items-start gap-3 mb-3">
                                     <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
@@ -449,7 +455,7 @@ export default function MyStudySets() {
                                     </div>
                                     <span className="text-xs text-gray-600 dark:text-gray-400">0%</span>
                                   </div>
-                                </Link>
+                                </button>
                               );
                             })}
                           </div>
@@ -514,10 +520,14 @@ export default function MyStudySets() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                               {uncategorizedSets.map((set) => {
                                 return (
-                                  <Link 
-                                    key={set.id} 
-                                    href={`/my-study-sets/${set.id}`}
-                                    className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-all cursor-pointer block"
+                                  <button
+                                    key={set.id}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      router.push(`/my-study-sets/${set.id}`);
+                                    }}
+                                    className="relative z-10 w-full text-left bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-all cursor-pointer block"
                                   >
                                     <div className="flex items-start gap-3 mb-3">
                                       <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
@@ -536,7 +546,7 @@ export default function MyStudySets() {
                                       </div>
                                       <span className="text-xs text-gray-600 dark:text-gray-400">0%</span>
                                     </div>
-                                  </Link>
+                                  </button>
                                 );
                               })}
                             </div>

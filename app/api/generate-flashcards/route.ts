@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { content, count = 10 } = body;
+    const { content } = body;
 
     if (!content || !content.trim()) {
       return NextResponse.json(
@@ -23,25 +23,27 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+      generationConfig: {
+        maxOutputTokens: 8192,
+        temperature: 0.3,
+      },
+    });
 
-    const prompt = `Based on the following study notes, generate ${count} flashcards. Each flashcard should have:
-1. A front side with a question or term
-2. A back side with the answer or definition
-3. Cover different key concepts from the notes
+    const fullContent = content.trim().substring(0, 50000);
 
-Return the flashcards in the following JSON format (valid JSON only, no markdown):
-{
-  "cards": [
-    {
-      "front": "Question or term here",
-      "back": "Answer or definition here"
-    }
-  ]
-}
+    const prompt = `You are creating flashcards from study notes. Generate AS MANY flashcards as possible—do NOT limit to 10. Create a separate flashcard for every key concept, term, definition, fact, date, person, process, and detail in the notes. The more comprehensive, the better. Aim for dozens or hundreds of cards if the content supports it.
+
+Each flashcard must have:
+- "front": a question, term, or prompt
+- "back": the answer, definition, or explanation
+
+Return valid JSON only (no markdown, no code blocks). Format:
+{"cards":[{"front":"...","back":"..."},{"front":"...","back":"..."},...]}
 
 Study notes:
-${content.substring(0, 30000)}`;
+${fullContent}`;
 
     try {
       const result = await model.generateContent(prompt);

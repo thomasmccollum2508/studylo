@@ -137,12 +137,12 @@ export default function AIGenerator() {
       }
 
       // Store summary in sessionStorage and navigate to results page
+      // Using sessionStorage only to avoid HTTP 431 (Request Header Fields Too Large) errors
       const summaryText = data.summary;
       sessionStorage.setItem('ai-summary', summaryText);
       
-      // Navigate to results page with summary in URL (for sharing/bookmarking)
-      const encodedSummary = encodeURIComponent(summaryText);
-      router.push(`/ai-generator/results?summary=${encodedSummary}`);
+      // Navigate to results page without summary in URL to avoid header size limits
+      router.push('/ai-generator/results');
     } catch (err) {
       console.error('Error analyzing content:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to generate content. Please try again.';

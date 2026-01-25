@@ -429,7 +429,11 @@ export default function Dashboard() {
                       recentSets.map((set) => {
                         const sub = set.subject || 'General';
                         return (
-                          <div key={set.id} className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all">
+                          <Link
+                            key={set.id}
+                            href={`/my-study-sets/${set.id}`}
+                            className="block bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                          >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4 flex-1">
                                 <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
@@ -455,7 +459,7 @@ export default function Dashboard() {
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          </Link>
                         );
                       })
                     )}

@@ -22,22 +22,13 @@ export default function ResultsPage() {
   const [useCustomSubject, setUseCustomSubject] = useState(false);
 
   useEffect(() => {
-    // Try to get from sessionStorage first (more reliable for long summaries)
+    // Get summary from sessionStorage only (URL params cause HTTP 431 for large content)
     const storedSummary = sessionStorage.getItem('ai-summary');
     if (storedSummary) {
       setSummary(storedSummary);
     } else {
-      // Fallback to URL params if sessionStorage not available
-      const summaryParam = searchParams.get('summary');
-      if (summaryParam) {
-        const decoded = decodeURIComponent(summaryParam);
-        setSummary(decoded);
-        // Also store in sessionStorage for future reference
-        sessionStorage.setItem('ai-summary', decoded);
-      } else {
-        // If no summary found, redirect back to generator
-        router.push('/ai-generator');
-      }
+      // If no summary found, redirect back to generator
+      router.push('/ai-generator');
     }
 
     // Load available subjects from user's study sets
@@ -231,11 +222,11 @@ export default function ResultsPage() {
                     <path d="M20 6L9 17L4 12" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <p className="text-gray-900 dark:text-gray-100 font-medium mb-2">Note saved successfully!</p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">Your note has been saved to your study sets.</p>
+                <p className="text-gray-900 dark:text-gray-100 font-medium mb-2">Flashcards created successfully!</p>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">Your study set and flashcards have been saved. Redirecting to flashcards page...</p>
                 <div className="flex gap-3">
                   <Link
-                    href="/my-study-sets"
+                    href="/flashcards"
                     className="flex-1 px-4 py-2 bg-[#0055FF] hover:bg-[#0044CC] text-white rounded-lg font-medium transition-colors text-center"
                     onClick={() => {
                       setShowSaveDialog(false);
@@ -245,7 +236,7 @@ export default function ResultsPage() {
                       setUseCustomSubject(false);
                     }}
                   >
-                    View Study Sets
+                    Go to Flashcards
                   </Link>
                   <button
                     onClick={() => {
@@ -418,7 +409,42 @@ export default function ResultsPage() {
                           localStorage.setItem(`note-content-${data.id}`, summary);
                         }
 
+                        // Generate flashcards from the summary
+                        try {
+                          const textContent = summary.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                          const maxLength = 50000;
+                          const truncatedContent = textContent.length > maxLength 
+                            ? textContent.substring(0, maxLength)
+                            : textContent;
+
+                          const flashcardResponse = await fetch('/api/generate-flashcards', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              content: truncatedContent,
+                            }),
+                          });
+
+                          const flashcardData = await flashcardResponse.json();
+
+                          if (flashcardData.success && flashcardData.cards) {
+                            // Save flashcards to localStorage
+                            localStorage.setItem(`flashcards-${data.id}`, JSON.stringify(flashcardData.cards));
+                          }
+                        } catch (flashcardError) {
+                          console.error('Error generating flashcards:', flashcardError);
+                          // Continue even if flashcard generation fails
+                        }
+
                         setSaveSuccess(true);
+                        
+                        // Redirect to flashcards page after a short delay
+                        setTimeout(() => {
+                          router.push('/flashcards');
+                        }, 1000);
+                        
                         // Refresh subjects list after saving
                         const { data: updatedSets, error: refreshError } = await supabase
                           .from('study_sets')
