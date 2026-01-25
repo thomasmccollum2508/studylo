@@ -17,6 +17,7 @@ export default function ResultsPage() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [savedStudySetId, setSavedStudySetId] = useState<string | null>(null);
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
   const [useCustomSubject, setUseCustomSubject] = useState(false);
@@ -222,22 +223,25 @@ export default function ResultsPage() {
                     <path d="M20 6L9 17L4 12" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <p className="text-gray-900 dark:text-gray-100 font-medium mb-2">Flashcards created successfully!</p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">Your study set and flashcards have been saved. Redirecting to flashcards page...</p>
+                <p className="text-gray-900 dark:text-gray-100 font-medium mb-2">Your study set is ready!</p>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">Your study set and flashcards have been saved.</p>
                 <div className="flex gap-3">
-                  <Link
-                    href="/flashcards"
-                    className="flex-1 px-4 py-2 bg-[#0055FF] hover:bg-[#0044CC] text-white rounded-lg font-medium transition-colors text-center"
-                    onClick={() => {
-                      setShowSaveDialog(false);
-                      setSaveSuccess(false);
-                      setNoteTitle('');
-                      setNoteSubject('');
-                      setUseCustomSubject(false);
-                    }}
-                  >
-                    Go to Flashcards
-                  </Link>
+                  {savedStudySetId && (
+                    <Link
+                      href={`/my-study-sets/${savedStudySetId}`}
+                      className="flex-1 px-4 py-2 bg-[#0055FF] hover:bg-[#0044CC] text-white rounded-lg font-medium transition-colors text-center"
+                      onClick={() => {
+                        setShowSaveDialog(false);
+                        setSaveSuccess(false);
+                        setNoteTitle('');
+                        setNoteSubject('');
+                        setUseCustomSubject(false);
+                        setSavedStudySetId(null);
+                      }}
+                    >
+                      Go to Study Set
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       setShowSaveDialog(false);
@@ -245,6 +249,7 @@ export default function ResultsPage() {
                       setNoteTitle('');
                       setNoteSubject('');
                       setUseCustomSubject(false);
+                      setSavedStudySetId(null);
                     }}
                     className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
                   >
@@ -439,11 +444,7 @@ export default function ResultsPage() {
                         }
 
                         setSaveSuccess(true);
-                        
-                        // Redirect to flashcards page after a short delay
-                        setTimeout(() => {
-                          router.push('/flashcards');
-                        }, 1000);
+                        setSavedStudySetId(data.id);
                         
                         // Refresh subjects list after saving
                         const { data: updatedSets, error: refreshError } = await supabase

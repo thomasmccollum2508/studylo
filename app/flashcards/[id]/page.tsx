@@ -3,168 +3,81 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import type { StudySet } from '@/lib/types/database';
 
 interface Flashcard {
   front: string;
   back: string;
+  image?: string;
 }
 
-export default function Flashcards() {
+interface ManualFlashcardMetadata {
+  id: string;
+  title: string;
+  description: string | null;
+  cardCount: number;
+  createdAt: string;
+  isManual: boolean;
+}
+
+export default function ManualFlashcards() {
   const params = useParams();
   const router = useRouter();
-  const [studySet, setStudySet] = useState<StudySet | null>(null);
-  const [content, setContent] = useState<string>('');
+  const [metadata, setMetadata] = useState<ManualFlashcardMetadata | null>(null);
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [trackProgress, setTrackProgress] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [starredCards, setStarredCards] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    async function loadStudySet() {
+    function loadFlashcards() {
       try {
         setLoading(true);
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          router.push('/login');
+        const flashcardId = params.id as string;
+
+        if (!flashcardId || !flashcardId.startsWith('manual-')) {
+          router.push('/flashcards');
           return;
         }
 
-        const studySetId = params.id as string;
-        
-        // Get study set from database
-        const { data: setData, error } = await supabase
-          .from('study_sets')
-          .select('*')
-          .eq('id', studySetId)
-          .eq('user_id', user.id)
-          .single();
-
-        if (error || !setData) {
-          console.error('Error loading study set:', error);
-          router.push('/my-study-sets');
+        // Load metadata
+        const metadataJson = localStorage.getItem(`flashcard-metadata-${flashcardId}`);
+        if (!metadataJson) {
+          router.push('/flashcards');
           return;
         }
 
-        setStudySet(setData as StudySet);
+        const parsedMetadata: ManualFlashcardMetadata = JSON.parse(metadataJson);
+        setMetadata(parsedMetadata);
 
-        // Get content from localStorage
-        const savedContent = localStorage.getItem(`note-content-${studySetId}`);
-        if (savedContent) {
-          setContent(savedContent);
-        }
-
-        // Always check for saved flashcards (for both AI-generated and manually created)
-        const savedCards = localStorage.getItem(`flashcards-${studySetId}`);
-        const parsed = savedCards ? JSON.parse(savedCards) : null;
-        
-        if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-          // For manually created flashcards (no savedContent), always use them
-          // For AI-generated flashcards, only use if >10 cards (skip old "limit 10" cache)
-          if (!savedContent || parsed.length > 10) {
+        // Load flashcards
+        const savedCards = localStorage.getItem(`flashcards-${flashcardId}`);
+        if (savedCards) {
+          const parsed = JSON.parse(savedCards);
+          if (Array.isArray(parsed) && parsed.length > 0) {
             setCards(parsed);
-            setLoading(false);
           } else {
-            // Old AI-generated set with ≤10 cards - regenerate
-            if (parsed.length <= 10) {
-              localStorage.removeItem(`flashcards-${studySetId}`);
-            }
-            if (savedContent) {
-              await generateFlashcards(savedContent, studySetId);
-            } else {
-              setLoading(false);
-            }
+            router.push('/flashcards');
+            return;
           }
-        } else if (savedContent) {
-          // No flashcards but have content - generate them
-          await generateFlashcards(savedContent, studySetId);
         } else {
-          // No content and no flashcards - nothing to show
-          setLoading(false);
+          router.push('/flashcards');
+          return;
         }
       } catch (error) {
-        console.error('Error loading study set:', error);
-        router.push('/my-study-sets');
+        console.error('Error loading flashcards:', error);
+        router.push('/flashcards');
+      } finally {
+        setLoading(false);
       }
     }
 
     if (params.id) {
-      loadStudySet();
+      loadFlashcards();
     }
   }, [params.id, router]);
-
-  const generateFlashcards = async (notesContent: string, studySetId: string) => {
-    try {
-      setGenerating(true);
-      
-      // Strip HTML tags for AI processing; keep all content for max flashcards
-      const textContent = notesContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-      const maxLength = 50000;
-      const truncatedContent = textContent.length > maxLength 
-        ? textContent.substring(0, maxLength)
-        : textContent;
-
-      const response = await fetch('/api/generate-flashcards', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: truncatedContent,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.cards) {
-        setCards(data.cards);
-        // Save flashcards to localStorage
-        localStorage.setItem(`flashcards-${studySetId}`, JSON.stringify(data.cards));
-      } else {
-        console.error('Error generating flashcards:', data.error);
-        // Create fallback flashcards
-        createFallbackFlashcards(truncatedContent);
-      }
-    } catch (error) {
-      console.error('Error generating flashcards:', error);
-      // Create fallback flashcards
-      createFallbackFlashcards(notesContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
-    } finally {
-      setGenerating(false);
-      setLoading(false);
-    }
-  };
-
-  const createFallbackFlashcards = (textContent: string) => {
-    // Fallback: create as many cards as possible from sentences/phrases
-    const sentences = textContent.split(/[.!?]+/).filter(s => s.trim().length > 20);
-    const fallbackCards: Flashcard[] = [];
-    
-    for (let i = 0; i < sentences.length; i++) {
-      const sentence = sentences[i].trim();
-      if (sentence.length > 25) {
-        const words = sentence.split(' ').filter(Boolean);
-        const keyTerm = words.find(w => w.length > 5) || words[0];
-        if (keyTerm) {
-          fallbackCards.push({
-            front: `What is ${keyTerm}?`,
-            back: sentence,
-          });
-        }
-      }
-    }
-    
-    if (fallbackCards.length > 0) {
-      setCards(fallbackCards);
-    }
-  };
 
   const flipCard = () => {
     setIsFlipped(!isFlipped);
@@ -195,47 +108,32 @@ export default function Flashcards() {
     });
   };
 
-  const handleRegenerate = async () => {
-    const id = params.id as string;
-    const savedContent = localStorage.getItem(`note-content-${id}`);
-    if (!savedContent || !studySet) return;
-    localStorage.removeItem(`flashcards-${id}`);
-    setCurrentCardIndex(0);
-    setIsFlipped(false);
-    setShowHint(false);
-    await generateFlashcards(savedContent, id);
-  };
-
   const isStarred = starredCards.has(currentCardIndex);
   const hint = currentCardIndex < cards.length
     ? (cards[currentCardIndex]?.back ?? '').slice(0, 80) + ((cards[currentCardIndex]?.back ?? '').length > 80 ? '…' : '')
     : '';
 
-  if (loading || generating) {
+  if (loading) {
     return (
       <div className="flex h-screen bg-white dark:bg-gray-900 items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            {generating ? 'Generating flashcards...' : 'Loading...'}
-          </p>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Loading...</p>
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
         </div>
       </div>
     );
   }
 
-  if (!studySet || cards.length === 0) {
+  if (!metadata || cards.length === 0) {
     return (
       <div className="flex h-screen bg-white dark:bg-gray-900 items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            {!content ? 'No content available to generate flashcards from.' : 'Unable to generate flashcards.'}
-          </p>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Flashcards not found.</p>
           <Link 
-            href={`/my-study-sets/${params.id}`}
+            href="/flashcards"
             className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
           >
-            Back to Study Set
+            Back to Flashcards
           </Link>
         </div>
       </div>
@@ -250,7 +148,7 @@ export default function Flashcards() {
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 lg:px-10 py-4 transition-colors duration-300 shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link
-            href={`/my-study-sets/${params.id}`}
+            href="/flashcards"
             className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             <div className="w-8 h-8 rounded-lg bg-[#0055FF] flex items-center justify-center">
@@ -269,15 +167,7 @@ export default function Flashcards() {
             <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {currentCardIndex + 1} / {cards.length}
             </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{studySet.title}</span>
-            <button
-              type="button"
-              onClick={handleRegenerate}
-              disabled={generating}
-              className="text-xs text-[#0055FF] dark:text-blue-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {generating ? 'Regenerating…' : 'Regenerate flashcards'}
-            </button>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{metadata.title}</span>
           </div>
         </div>
       </header>
@@ -322,7 +212,7 @@ export default function Flashcards() {
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={(e) => e.stopPropagation()} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Edit">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M11 4H4C3.44772 4 3 4.44772 3 5V19C3 19.5523 3.44772 20 4 20H18C18.5523 20 19 19.5523 19 19V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       <path d="M18.5 2.5C18.8978 2.10218 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10218 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10218 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </button>
@@ -370,7 +260,7 @@ export default function Flashcards() {
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={(e) => e.stopPropagation()} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Edit">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M11 4H4C3.44772 4 3 4.44772 3 5V19C3 19.5523 3.44772 20 4 20H18C18.5523 20 19 19.5523 19 19V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       <path d="M18.5 2.5C18.8978 2.10218 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10218 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10218 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </button>
@@ -393,6 +283,9 @@ export default function Flashcards() {
                 </div>
               </div>
               <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
+                {currentCard.image && (
+                  <img src={currentCard.image} alt="Card illustration" className="mb-4 max-w-full max-h-48 rounded-lg" />
+                )}
                 <p className="text-xl lg:text-2xl text-gray-900 dark:text-gray-100 leading-relaxed">
                   {currentCard.back}
                 </p>

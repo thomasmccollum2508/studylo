@@ -7,10 +7,21 @@ import { createClient } from '@/lib/supabase/client';
 import type { StudySet } from '@/lib/types/database';
 import { useTheme } from '@/app/providers/ThemeProvider';
 
+interface ManualFlashcardMetadata {
+  id: string;
+  title: string;
+  description: string | null;
+  cardCount: number;
+  createdAt: string;
+  isManual: boolean;
+}
+
 interface FlashcardSet {
-  studySet: StudySet;
+  studySet?: StudySet;
+  manualMetadata?: ManualFlashcardMetadata;
   totalCards: number;
   mastered: number;
+  flashcardId: string; // ID used in localStorage key
 }
 
 export default function Flashcards() {
@@ -55,6 +66,7 @@ export default function Flashcards() {
 
       const setsWithFlashcards: FlashcardSet[] = [];
       
+      // Load flashcard sets from database (AI-generated)
       (studySets || []).forEach((studySet) => {
         const savedCards = localStorage.getItem(`flashcards-${studySet.id}`);
         if (savedCards) {
@@ -66,12 +78,53 @@ export default function Flashcards() {
                 studySet,
                 totalCards: cards.length,
                 mastered,
+                flashcardId: studySet.id,
               });
             }
           } catch (e) {
             console.error('Error parsing flashcards for', studySet.id, e);
           }
         }
+      });
+
+      // Load manual flashcard sets (no study set in database)
+      const manualFlashcardKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('flashcard-metadata-manual-')) {
+          manualFlashcardKeys.push(key);
+        }
+      }
+
+      manualFlashcardKeys.forEach((metadataKey) => {
+        try {
+          const metadataJson = localStorage.getItem(metadataKey);
+          if (metadataJson) {
+            const metadata: ManualFlashcardMetadata = JSON.parse(metadataJson);
+            const savedCards = localStorage.getItem(`flashcards-${metadata.id}`);
+            if (savedCards) {
+              const cards = JSON.parse(savedCards);
+              if (Array.isArray(cards) && cards.length > 0) {
+                const mastered = 0;
+                setsWithFlashcards.push({
+                  manualMetadata: metadata,
+                  totalCards: cards.length,
+                  mastered,
+                  flashcardId: metadata.id,
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error loading manual flashcard set:', e);
+        }
+      });
+
+      // Sort by creation date (newest first)
+      setsWithFlashcards.sort((a, b) => {
+        const dateA = a.studySet?.created_at || a.manualMetadata?.createdAt || '';
+        const dateB = b.studySet?.created_at || b.manualMetadata?.createdAt || '';
+        return dateB.localeCompare(dateA);
       });
 
       setFlashcardSets(setsWithFlashcards);
@@ -380,18 +433,25 @@ export default function Flashcards() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {flashcardSets.map((flashcardSet) => {
-                  const { studySet, totalCards, mastered } = flashcardSet;
+                  const { studySet, manualMetadata, totalCards, mastered, flashcardId } = flashcardSet;
+                  const title = studySet?.title || manualMetadata?.title || 'Untitled';
                   const progressPercent = totalCards > 0 ? (mastered / totalCards) * 100 : 0;
                   
                   return (
                     <button
-                      key={studySet.id}
+                      key={flashcardId}
                       type="button"
-                      onClick={() => router.push(`/my-study-sets/${studySet.id}/flashcards`)}
+                      onClick={() => {
+                        if (studySet) {
+                          router.push(`/my-study-sets/${studySet.id}/flashcards`);
+                        } else if (manualMetadata) {
+                          router.push(`/flashcards/${flashcardId}`);
+                        }
+                      }}
                       className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer text-left w-full"
                     >
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{studySet.title}</h3>
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{title}</h3>
                         <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
                           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="3" y="5" width="14" height="10" rx="2" stroke="#10B981" strokeWidth="1.5"/>
@@ -620,8 +680,7 @@ export default function Flashcards() {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
-                  // TODO: Navigate to manual creation page when implemented
-                  alert('Manual creation coming soon!');
+                  router.push('/flashcards/create');
                 }}
                 className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-6 py-4 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-3"
               >
