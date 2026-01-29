@@ -55,12 +55,6 @@ export default function Quizzes() {
             Quizzes
           </Link>
 
-          <Link href="/ai-generator" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-            </svg>
-            AI Generator
-          </Link>
         </nav>
 
         <div className="p-3">
@@ -112,14 +106,8 @@ export default function Quizzes() {
 
         <main className="flex-1 overflow-y-auto p-8">
           <div className="max-w-6xl">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Quizzes</h1>
-              <button className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                Create Quiz
-              </button>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-6">Test your knowledge and track your progress</p>
             

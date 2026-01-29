@@ -49,6 +49,10 @@ export default function Dashboard() {
     async function load() {
       try {
         const supabase = createClient();
+        if (!supabase) {
+          setLoading(false);
+          return;
+        }
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           return;
@@ -140,12 +144,6 @@ export default function Dashboard() {
             Quizzes
           </Link>
 
-          <Link href="/ai-generator" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-            </svg>
-            AI Generator
-          </Link>
         </nav>
 
         {/* Settings at bottom */}
@@ -317,83 +315,30 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Create with AI Section */}
+                {/* Primary Create Study Set CTA */}
                 <div className="mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" fill="#0055FF"/>
-                      </svg>
-                      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Create with AI</h2>
-                    </div>
-                    <Link href="/ai-generator" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm flex items-center gap-1 transition-colors">
-                      View all
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </Link>
-                  </div>
-
-                  <div className="grid grid-cols-5 gap-4">
-                    {/* Upload Notes */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                      <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 15V3M12 3L8 7M12 3L16 7" stroke="#0055FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M3 15V18C3 19.6569 4.34315 21 6 21H18C19.6569 21 21 19.6569 21 18V15" stroke="#0055FF" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl p-8 border border-blue-100 dark:border-blue-800/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Create Your Study Set</h2>
+                        <p className="text-gray-700 dark:text-gray-300 mb-6">Upload your notes and Studylo turns them into a complete study set with flashcards, practice tests, and more.</p>
+                        <Link 
+                          href="/ai-generator" 
+                          className="inline-flex items-center gap-2 bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-3 rounded-lg text-base font-medium transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                        >
+                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                          Create Study Set
+                        </Link>
                       </div>
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">Upload Notes</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Drop your PDFs, docs, or images</p>
-                    </div>
-
-                    {/* Paste Text */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                      <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15" stroke="#8B5CF6" strokeWidth="2"/>
-                          <rect x="9" y="3" width="6" height="4" rx="1" stroke="#8B5CF6" strokeWidth="2"/>
-                        </svg>
+                      <div className="hidden md:block ml-8">
+                        <div className="w-32 h-32 bg-blue-200 dark:bg-blue-800/50 rounded-full flex items-center justify-center">
+                          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" fill="#0055FF" opacity="0.3"/>
+                          </svg>
+                        </div>
                       </div>
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">Paste Text</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Copy-paste any text content</p>
-                    </div>
-
-                    {/* AI Flashcards */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                      <div className="w-12 h-12 bg-green-50 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <rect x="4" y="6" width="16" height="12" rx="2" stroke="#10B981" strokeWidth="2"/>
-                          <path d="M7 4H17" stroke="#10B981" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                      </div>
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">AI Flashcards</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Generate smart flashcards instantly</p>
-                    </div>
-
-                    {/* AI Quizzes */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                      <div className="w-12 h-12 bg-orange-50 dark:bg-orange-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="12" cy="12" r="9" stroke="#F97316" strokeWidth="2"/>
-                          <path d="M12 8V12" stroke="#F97316" strokeWidth="2" strokeLinecap="round"/>
-                          <circle cx="12" cy="16" r="0.5" fill="#F97316" stroke="#F97316"/>
-                        </svg>
-                      </div>
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">AI Quizzes</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Create practice tests in seconds</p>
-                    </div>
-
-                    {/* AI Study Sets */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                      <div className="w-12 h-12 bg-red-50 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M4 7C4 5.89543 4.89543 5 6 5H18C19.1046 5 20 5.89543 20 7V17C20 18.1046 19.1046 19 18 19H6C4.89543 19 4 18.1046 4 17V7Z" stroke="#EF4444" strokeWidth="2"/>
-                          <path d="M9 5V19" stroke="#EF4444" strokeWidth="2"/>
-                        </svg>
-                      </div>
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">AI Study Sets</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Build complete study materials</p>
                     </div>
                   </div>
                 </div>
@@ -422,7 +367,7 @@ export default function Dashboard() {
                       <div className="bg-white dark:bg-gray-800 rounded-xl p-12 border border-gray-100 dark:border-gray-700 text-center transition-colors">
                         <p className="text-gray-600 dark:text-gray-400 mb-4">No study sets yet. Create one to get started.</p>
                         <Link href="/ai-generator" className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium">
-                          Create with AI
+                          Create Study Set
                         </Link>
                       </div>
                     ) : (
@@ -498,7 +443,7 @@ export default function Dashboard() {
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No suggestions yet.</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500">Create study sets and we&apos;ll recommend next steps.</p>
                     <Link href="/ai-generator" className="inline-block mt-3 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm transition-colors">
-                      Create with AI →
+                      Create Study Set →
                     </Link>
                   </div>
                 </div>

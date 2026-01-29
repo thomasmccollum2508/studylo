@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { StudySet } from '@/lib/types/database';
@@ -29,22 +29,15 @@ export default function Flashcards() {
   const router = useRouter();
   const [flashcardSets, setFlashcardSets] = useState<FlashcardSet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showAIGenerator, setShowAIGenerator] = useState(false);
-  const [inputMethod, setInputMethod] = useState<'upload' | 'paste' | 'camera'>('paste');
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [pastedText, setPastedText] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState('');
-  const [noteTitle, setNoteTitle] = useState('');
-  const [noteSubject, setNoteSubject] = useState('');
-  const [saving, setSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadFlashcardSets = async () => {
     try {
       setLoading(true);
       const supabase = createClient();
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -135,151 +128,6 @@ export default function Flashcards() {
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setUploadedFiles(files);
-    setError('');
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files);
-    setUploadedFiles(files);
-    setError('');
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-  };
-
-  const handleAnalyzeAndCreate = async () => {
-    setError('');
-    
-    if (inputMethod === 'upload' && uploadedFiles.length === 0) {
-      setError('Please upload at least one file.');
-      return;
-    }
-    if (inputMethod === 'paste' && !pastedText.trim()) {
-      setError('Please paste some text content.');
-      return;
-    }
-
-    if (!noteTitle.trim()) {
-      setError('Please enter a title for your flashcard set.');
-      return;
-    }
-
-    setProcessing(true);
-    setSaving(true);
-
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setError('You must be logged in to create flashcards');
-        setProcessing(false);
-        setSaving(false);
-        return;
-      }
-
-      // Step 1: Analyze the content
-      const formData = new FormData();
-      formData.append('inputMethod', inputMethod);
-      
-      if (inputMethod === 'paste') {
-        formData.append('textContent', pastedText);
-      } else if (inputMethod === 'upload') {
-        uploadedFiles.forEach((file) => {
-          formData.append('files', file);
-        });
-      }
-
-      const analyzeResponse = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData,
-      });
-
-      let analyzeData;
-      try {
-        analyzeData = await analyzeResponse.json();
-      } catch (jsonError) {
-        const text = await analyzeResponse.text();
-        throw new Error(`Server error: ${analyzeResponse.status} ${analyzeResponse.statusText}. ${text.substring(0, 200)}`);
-      }
-
-      if (!analyzeResponse.ok || !analyzeData.success) {
-        throw new Error(analyzeData.error || `Failed to analyze content (${analyzeResponse.status})`);
-      }
-
-      const summaryText = analyzeData.summary;
-
-      // Step 2: Create study set
-      const { data: studySetData, error: studySetError } = await supabase
-        .from('study_sets')
-        .insert({
-          user_id: user.id,
-          title: noteTitle.trim(),
-          subject: noteSubject.trim() || null,
-          card_count: 0,
-        })
-        .select()
-        .single();
-
-      if (studySetError || !studySetData) {
-        throw new Error(studySetError?.message || 'Failed to create study set');
-      }
-
-      // Step 3: Save content to localStorage
-      localStorage.setItem(`note-content-${studySetData.id}`, summaryText);
-
-      // Step 4: Generate flashcards directly
-      const textContent = summaryText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-      const maxLength = 50000;
-      const truncatedContent = textContent.length > maxLength 
-        ? textContent.substring(0, maxLength)
-        : textContent;
-
-      const flashcardResponse = await fetch('/api/generate-flashcards', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: truncatedContent,
-        }),
-      });
-
-      const flashcardData = await flashcardResponse.json();
-
-      if (flashcardResponse.ok && flashcardData.success && flashcardData.cards) {
-        // Save flashcards to localStorage
-        localStorage.setItem(`flashcards-${studySetData.id}`, JSON.stringify(flashcardData.cards));
-      } else {
-        console.error('Error generating flashcards:', flashcardData.error);
-        // Continue even if flashcard generation fails - user can regenerate later
-      }
-
-      // Step 5: Reset form and reload flashcard sets
-      setPastedText('');
-      setUploadedFiles([]);
-      setNoteTitle('');
-      setNoteSubject('');
-      setShowAIGenerator(false);
-      setShowCreateModal(false);
-      
-      // Reload flashcard sets to show the new one
-      await loadFlashcardSets();
-      
-    } catch (err) {
-      console.error('Error creating flashcards:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create flashcards. Please try again.';
-      setError(errorMessage);
-    } finally {
-      setProcessing(false);
-      setSaving(false);
-    }
-  };
 
   useEffect(() => {
     loadFlashcardSets();
@@ -336,12 +184,6 @@ export default function Flashcards() {
             Quizzes
           </Link>
 
-          <Link href="/ai-generator" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-            </svg>
-            AI Generator
-          </Link>
         </nav>
 
         {/* Settings at bottom */}
@@ -396,20 +238,9 @@ export default function Flashcards() {
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-8">
           <div className="max-w-6xl">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Flashcards</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">Review and master your study materials</p>
-              </div>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2"
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                Create Flashcard
-              </button>
+            <div className="mb-2">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Flashcards</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">Review and master your study materials</p>
             </div>
             
             {loading ? (
@@ -422,12 +253,12 @@ export default function Flashcards() {
             ) : flashcardSets.length === 0 ? (
               <div className="bg-white dark:bg-gray-800 rounded-xl p-12 border border-gray-100 dark:border-gray-700 text-center">
                 <p className="text-gray-600 dark:text-gray-400 mb-4">No flashcards created yet.</p>
-                <p className="text-sm text-gray-500 dark:text-gray-500 mb-6">Create a study set and generate flashcards to get started.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 mb-6">Create a study set to generate flashcards automatically.</p>
                 <Link 
                   href="/ai-generator"
                   className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5"
                 >
-                  Create Flashcard Set
+                  Create Study Set
                 </Link>
               </div>
             ) : (
@@ -483,223 +314,9 @@ export default function Flashcards() {
               </div>
             )}
 
-            {/* AI Generator Section (shown when Create with AI is clicked) */}
-            {showAIGenerator && (
-              <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create Flashcards with AI</h2>
-                  <button
-                    onClick={() => {
-                      setShowAIGenerator(false);
-                      setPastedText('');
-                      setUploadedFiles([]);
-                      setNoteTitle('');
-                      setNoteSubject('');
-                      setError('');
-                    }}
-                    className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Input Method Tabs */}
-                <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => setInputMethod('paste')}
-                    className={`px-4 py-2 font-medium text-sm transition-colors ${
-                      inputMethod === 'paste'
-                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-                    }`}
-                  >
-                    Paste Text
-                  </button>
-                  <button
-                    onClick={() => setInputMethod('upload')}
-                    className={`px-4 py-2 font-medium text-sm transition-colors ${
-                      inputMethod === 'upload'
-                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-                    }`}
-                  >
-                    Upload Files
-                  </button>
-                </div>
-
-                {/* Error Message */}
-                {error && (
-                  <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-sm">
-                    {error}
-                  </div>
-                )}
-
-                {/* Paste Text Section */}
-                {inputMethod === 'paste' && (
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Paste your notes here
-                    </label>
-                    <textarea
-                      value={pastedText}
-                      onChange={(e) => setPastedText(e.target.value)}
-                      placeholder="Paste your study notes, lecture content, or any text you want to turn into flashcards..."
-                      className="w-full h-48 px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black dark:text-white bg-white dark:bg-gray-700 resize-none"
-                    />
-                  </div>
-                )}
-
-                {/* Upload Files Section */}
-                {inputMethod === 'upload' && (
-                  <div className="mb-6">
-                    <div
-                      onDrop={handleDrop}
-                      onDragOver={handleDragOver}
-                      className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-blue-500 dark:hover:border-blue-500 transition-colors cursor-pointer bg-gray-50 dark:bg-gray-700/50"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                      />
-                      <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 15V3M12 3L8 7M12 3L16 7" stroke="#0055FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M3 15V18C3 19.6569 4.34315 21 6 21H18C19.6569 21 21 19.6569 21 18V15" stroke="#0055FF" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                        Drop files here or click to browse
-                      </h3>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">
-                        Supports PDF, DOC, DOCX, TXT, JPG, PNG
-                      </p>
-                    </div>
-
-                    {uploadedFiles.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        {uploadedFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                            <span className="text-sm text-gray-900 dark:text-gray-100">{file.name}</span>
-                            <button
-                              onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== index))}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Study Set Details */}
-                <div className="mb-6 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Flashcard Set Title <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={noteTitle}
-                      onChange={(e) => setNoteTitle(e.target.value)}
-                      placeholder="e.g., Biology Chapter 5, French Vocabulary"
-                      className="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black dark:text-white bg-white dark:bg-gray-700"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Subject (optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={noteSubject}
-                      onChange={(e) => setNoteSubject(e.target.value)}
-                      placeholder="e.g., Biology, History, Math"
-                      className="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black dark:text-white bg-white dark:bg-gray-700"
-                    />
-                  </div>
-                </div>
-
-                {/* Analyze Button */}
-                <button
-                  onClick={handleAnalyzeAndCreate}
-                  disabled={processing || saving || !noteTitle.trim() || (inputMethod === 'paste' && !pastedText.trim()) || (inputMethod === 'upload' && uploadedFiles.length === 0)}
-                  className="w-full bg-[#0055FF] hover:bg-[#0044CC] disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-                >
-                  {processing || saving ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      {saving ? 'Creating flashcards...' : 'Analyzing notes...'}
-                    </>
-                  ) : (
-                    <>
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                      </svg>
-                      Create Flashcards
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
           </div>
         </main>
       </div>
-
-      {/* Create Flashcard Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowCreateModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 border border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Create Flashcard Set</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Choose how you'd like to create your flashcards</p>
-            
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setShowAIGenerator(true);
-                }}
-                className="w-full bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-4 rounded-lg font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-center gap-3"
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                </svg>
-                Create with AI
-              </button>
-              
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  router.push('/flashcards/create');
-                }}
-                className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-6 py-4 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-3"
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                Create Manually
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowCreateModal(false)}
-              className="mt-4 w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm font-medium transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

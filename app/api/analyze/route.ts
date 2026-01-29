@@ -3,6 +3,78 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const GEMINI_API_KEY = 'AIzaSyALciv_C3rhtP1BDuQRT-g2ha1s8vMh0zg';
 
+/** Instructions for the AI when turning user content into notes (full, exam-ready notes – not summaries). */
+const EXAM_NOTES_SYSTEM_INSTRUCTIONS = `Your task is to create FULL, DETAILED, EXAM-READY NOTES.
+🔒 NON-NEGOTIABLE RULES
+Do NOT summarise
+Do NOT skip any topic
+Do NOT combine topics
+Do NOT assume prior knowledge
+Do NOT write short or generic notes
+If any examinable concept is missing, the output is incorrect.
+
+📐 REQUIRED FORMAT (MUST MATCH EXACTLY)
+Start with:
+[SUBJECT]
+TOPIC NAME
+FULL NOTES WITH DEFINITIONS
+
+🧱 STRUCTURE RULES
+Use numbered sections
+Each major concept must include:
+Definition
+Key Points
+Examples (where applicable)
+Use clear sub-headings such as:
+Definition
+Key Points
+Examples
+Reasons
+Results
+Importance
+Rewards (for economics topics)
+Use bullet points under sub-headings
+Leave clear spacing between sections
+End with:
+KEY DEFINITIONS TO MEMORISE (EXAM SECTION)
+
+🧠 CONTENT RULES
+Write in simple Grade 8–9 language
+Use a teacher / textbook tone
+Explain concepts step-by-step
+Include real-life and South African examples where possible
+Cover the topic from start to finish, even if it feels obvious
+
+🎯 QUALITY STANDARD
+The notes must:
+Be suitable for copying into a school notebook
+Be detailed enough to study from without a textbook
+Look like teacher-approved notes
+
+🚫 FINAL CHECK
+Before finishing:
+Confirm that every examinable heading is covered
+Confirm that all key terms are defined clearly
+
+✅ OUTPUT GOAL
+Produce complete, structured, exam-ready notes, not summaries.`;
+
+/** Builds the formatting suffix for Gemini (HTML tags, no Markdown). */
+function htmlFormattingInstructions(): string {
+  return `
+IMPORTANT FORMATTING INSTRUCTIONS:
+- Use HTML tags for formatting, NOT Markdown symbols
+- Use <strong>text</strong> for bold text (NOT **text** or *text*)
+- Use <em>text</em> for italic text (NOT *text*)
+- Use <h2>text</h2> for section headings
+- Use <h3>text</h3> for subsection headings
+- Use <ul><li>item</li></ul> for bullet lists
+- Use <ol><li>item</li></ol> for numbered lists
+- Use <p>text</p> for paragraphs
+- Do NOT use Markdown symbols like **, *, #, -, etc.
+- Format the output in a clear, organized manner with proper HTML sections`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -58,6 +130,73 @@ export async function POST(request: NextRequest) {
             console.error(`Error processing PDF ${file.name}:`, error);
             textFiles.push(`\n\n--- File: ${file.name} (PDF - could not process) ---`);
           }
+        } else if (fileName.endsWith('.docx')) {
+          // Word documents (.docx) - try mammoth first, fallback to Gemini vision API
+          try {
+            // Try to use mammoth if available
+            let mammothModule;
+            try {
+              mammothModule = await import('mammoth');
+            } catch (importError) {
+              // mammoth not installed, use Gemini vision API instead
+              throw new Error('mammoth_not_available');
+            }
+            
+            const arrayBuffer = await file.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const result = await mammothModule.default.extractRawText({ buffer });
+            const extractedText = result.value;
+            if (extractedText && extractedText.trim()) {
+              textFiles.push(`\n\n--- File: ${file.name} (Word Document) ---\n${extractedText}`);
+            } else {
+              // If raw text extraction fails, try with formatted text
+              const formattedResult = await mammothModule.default.convertToHtml({ buffer });
+              const htmlText = formattedResult.value;
+              // Strip HTML tags for text extraction
+              const plainText = htmlText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+              if (plainText) {
+                textFiles.push(`\n\n--- File: ${file.name} (Word Document) ---\n${plainText}`);
+              } else {
+                textFiles.push(`\n\n--- File: ${file.name} (Word Document - could not extract text) ---`);
+              }
+            }
+          } catch (error: any) {
+            // Fallback: use Gemini vision API for Word documents
+            if (error.message === 'mammoth_not_available' || error.message?.includes('Cannot find module')) {
+              console.log(`Mammoth not available, using Gemini vision API for ${file.name}`);
+            } else {
+              console.error(`Error processing Word document with mammoth ${file.name}:`, error);
+            }
+            
+            try {
+              const arrayBuffer = await file.arrayBuffer();
+              const buffer = Buffer.from(arrayBuffer);
+              const base64 = buffer.toString('base64');
+              imageFiles.push({
+                name: file.name,
+                data: base64,
+                mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+              });
+            } catch (fallbackError: any) {
+              console.error(`Fallback error processing Word document ${file.name}:`, fallbackError);
+              textFiles.push(`\n\n--- File: ${file.name} (Word Document - could not process) ---`);
+            }
+          }
+        } else if (fileName.endsWith('.doc')) {
+          // Older .doc format - try using Gemini vision API (mammoth doesn't support .doc)
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const base64 = buffer.toString('base64');
+            imageFiles.push({
+              name: file.name,
+              data: base64,
+              mimeType: 'application/msword'
+            });
+          } catch (error: any) {
+            console.error(`Error processing Word document ${file.name}:`, error);
+            textFiles.push(`\n\n--- File: ${file.name} (Word Document - could not process) ---`);
+          }
         } else if (fileType.startsWith('image/')) {
           // Image files - convert to base64 for Gemini vision API
           try {
@@ -99,6 +238,10 @@ export async function POST(request: NextRequest) {
               let geminiMimeType = imageFile.mimeType;
               if (imageFile.mimeType === 'application/pdf') {
                 geminiMimeType = 'application/pdf';
+              } else if (imageFile.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                         imageFile.mimeType === 'application/msword') {
+                // Word documents - Gemini can process these
+                geminiMimeType = imageFile.mimeType;
               } else if (!imageFile.mimeType || imageFile.mimeType === 'application/octet-stream') {
                 // Try to detect from file extension
                 if (imageFile.name.toLowerCase().endsWith('.png')) {
@@ -114,6 +257,15 @@ export async function POST(request: NextRequest) {
                 }
               }
               
+              // Create appropriate prompt based on file type
+              let extractionPrompt = 'Extract all text content from this file. Return only the extracted text, preserving the structure and formatting as much as possible. Do not summarize or analyze, just extract the raw text content.';
+              
+              if (imageFile.mimeType.includes('word') || imageFile.mimeType.includes('msword')) {
+                extractionPrompt = 'Extract all text content from this Word document. Return only the extracted text, preserving the structure, formatting, headings, lists, and paragraphs as much as possible. Include all content from all pages. Do not summarize or analyze, just extract the raw text content.';
+              } else if (imageFile.mimeType.includes('pdf')) {
+                extractionPrompt = 'Extract all text content from this PDF. Return only the extracted text, preserving the structure and formatting as much as possible. Include all content from all pages. Do not summarize or analyze, just extract the raw text content.';
+              }
+              
               const result = await model.generateContent([
                 {
                   inlineData: {
@@ -122,13 +274,17 @@ export async function POST(request: NextRequest) {
                   }
                 },
                 {
-                  text: 'Extract all text content from this image or PDF. Return only the extracted text, preserving the structure and formatting as much as possible. Do not summarize or analyze, just extract the raw text content.'
+                  text: extractionPrompt
                 }
               ]);
               
               const response = await result.response;
               const extractedText = response.text();
-              imageTexts.push(`\n\n--- File: ${imageFile.name} (${imageFile.mimeType.includes('pdf') ? 'PDF' : 'Image'}) ---\n${extractedText}`);
+              
+              const fileTypeLabel = imageFile.mimeType.includes('pdf') ? 'PDF' 
+                : imageFile.mimeType.includes('word') || imageFile.mimeType.includes('msword') ? 'Word Document'
+                : 'Image';
+              imageTexts.push(`\n\n--- File: ${imageFile.name} (${fileTypeLabel}) ---\n${extractedText}`);
             } catch (error: any) {
               console.error(`Error extracting text from ${imageFile.name}:`, error);
               imageTexts.push(`\n\n--- File: ${imageFile.name} (could not extract text) ---`);
@@ -195,23 +351,9 @@ export async function POST(request: NextRequest) {
               }
             },
             {
-              text: `Please analyze this image and provide a comprehensive summary of the content. Extract all text and key information, and organize it in a clear, structured format.
+              text: `${EXAM_NOTES_SYSTEM_INSTRUCTIONS}
 
-IMPORTANT FORMATTING INSTRUCTIONS:
-- Use HTML tags for formatting, NOT Markdown symbols
-- Use <strong>text</strong> for bold text (NOT **text** or *text*)
-- Use <em>text</em> for italic text (NOT *text*)
-- Use <h2>text</h2> for section headings
-- Use <h3>text</h3> for subsection headings
-- Use <ul><li>item</li></ul> for bullet lists
-- Use <ol><li>item</li></ol> for numbered lists
-- Use <p>text</p> for paragraphs
-- Do NOT use Markdown symbols like **, *, #, -, etc.
-
-Example format:
-<strong>Photosynthesis</strong> is the process by which plants use sunlight to make food.
-<strong>Raw materials:</strong> water, carbon dioxide, and sunlight.
-<strong>Products:</strong> glucose (food) and oxygen.`
+Turn the content in this image into full, exam-ready notes. Extract ALL text and key information. Do NOT summarise—expand and structure everything into the required format (numbered sections, Definition, Key Points, Examples, KEY DEFINITIONS TO MEMORISE at the end).${htmlFormattingInstructions()}`
             }
           ]);
           
@@ -227,32 +369,13 @@ Example format:
         
         // Step 2: Summarize the extracted text
         console.log('Summarizing extracted text...');
-        const prompt = `Please analyze and summarize the following content extracted from an image. Provide a comprehensive summary that includes:
+        const prompt = `${EXAM_NOTES_SYSTEM_INSTRUCTIONS}
 
-1. Main topics and key concepts
-2. Important details and facts
-3. Key takeaways
-4. Any important dates, names, or numbers mentioned
+Turn the following content (extracted from an image) into full, exam-ready notes. Do NOT summarise—use every topic and concept to build complete notes in the required format (numbered sections, Definition, Key Points, Examples, KEY DEFINITIONS TO MEMORISE at the end). Cover every examinable heading.
 
 Content extracted from image:
 ${extractedText}
-
-IMPORTANT FORMATTING INSTRUCTIONS:
-- Use HTML tags for formatting, NOT Markdown symbols
-- Use <strong>text</strong> for bold text (NOT **text** or *text*)
-- Use <em>text</em> for italic text (NOT *text*)
-- Use <h2>text</h2> for section headings
-- Use <h3>text</h3> for subsection headings
-- Use <ul><li>item</li></ul> for bullet lists
-- Use <ol><li>item</li></ol> for numbered lists
-- Use <p>text</p> for paragraphs
-- Do NOT use Markdown symbols like **, *, #, -, etc.
-- Format the summary in a clear, organized manner with proper HTML sections
-
-Example format:
-<strong>Photosynthesis</strong> is the process by which plants use sunlight to make food.
-<strong>Raw materials:</strong> water, carbon dioxide, and sunlight.
-<strong>Products:</strong> glucose (food) and oxygen.`;
+${htmlFormattingInstructions()}`;
 
         const summaryResult = await model.generateContent(prompt);
         const summaryResponse = await summaryResult.response;
@@ -298,32 +421,13 @@ Example format:
         ? contentToAnalyze.substring(0, maxLength) + '\n\n[Content truncated due to length...]'
         : contentToAnalyze;
 
-      const prompt = `Please analyze and summarize the following content. Provide a comprehensive summary that includes:
+      const prompt = `${EXAM_NOTES_SYSTEM_INSTRUCTIONS}
 
-1. Main topics and key concepts
-2. Important details and facts
-3. Key takeaways
-4. Any important dates, names, or numbers mentioned
+Turn the following content (uploaded or pasted by the user) into full, exam-ready notes. Do NOT summarise—use every topic and concept to build complete notes in the required format (numbered sections, Definition, Key Points, Examples, KEY DEFINITIONS TO MEMORISE at the end). Cover every examinable heading; do not skip or combine topics.
 
-Content to analyze:
+Content to turn into notes:
 ${truncatedContent}
-
-IMPORTANT FORMATTING INSTRUCTIONS:
-- Use HTML tags for formatting, NOT Markdown symbols
-- Use <strong>text</strong> for bold text (NOT **text** or *text*)
-- Use <em>text</em> for italic text (NOT *text*)
-- Use <h2>text</h2> for section headings
-- Use <h3>text</h3> for subsection headings
-- Use <ul><li>item</li></ul> for bullet lists
-- Use <ol><li>item</li></ol> for numbered lists
-- Use <p>text</p> for paragraphs
-- Do NOT use Markdown symbols like **, *, #, -, etc.
-- Format the summary in a clear, organized manner with proper HTML sections
-
-Example format:
-<strong>Photosynthesis</strong> is the process by which plants use sunlight to make food.
-<strong>Raw materials:</strong> water, carbon dioxide, and sunlight.
-<strong>Products:</strong> glucose (food) and oxygen.`;
+${htmlFormattingInstructions()}`;
 
       try {
         console.log('Sending request to Gemini API...');

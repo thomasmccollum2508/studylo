@@ -17,8 +17,12 @@ interface TestQuestion {
   prompt: string;
   promptType: 'term' | 'definition';
   correctAnswer: string;
-  options: string[];
-  correctIndex: number;
+  options?: string[]; // For multiple choice
+  correctIndex?: number; // For multiple choice
+  isTrue?: boolean; // For true/false
+  matchingPairs?: { term: string; definition: string }[]; // For matching
+  userAnswer?: string; // For written questions
+  userMatching?: { [key: string]: string }; // For matching questions
 }
 
 interface TestOptions {
@@ -47,7 +51,7 @@ export default function PracticeTest() {
   });
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: number | null }>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: number | null | string | boolean | { [key: string]: string } }>({});
   const [score, setScore] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const [testStartTime, setTestStartTime] = useState<number | null>(null);
@@ -61,6 +65,10 @@ export default function PracticeTest() {
       try {
         setLoading(true);
         const supabase = createClient();
+        if (!supabase) {
+          setLoading(false);
+          return;
+        }
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
@@ -116,61 +124,159 @@ export default function PracticeTest() {
 
     const generatedQuestions: TestQuestion[] = [];
     const maxQuestions = Math.min(testOptions.questionCount, flashcards.length);
+    
+    // Determine which question types are selected
+    const selectedTypes: ('multiple-choice' | 'true-false' | 'matching' | 'written')[] = [];
+    if (testOptions.multipleChoice) selectedTypes.push('multiple-choice');
+    if (testOptions.trueFalse) selectedTypes.push('true-false');
+    if (testOptions.matching) selectedTypes.push('matching');
+    if (testOptions.written) selectedTypes.push('written');
+
+    if (selectedTypes.length === 0) return;
+
+    // Shuffle flashcards
     const shuffled = [...flashcards].sort(() => Math.random() - 0.5);
-    const selectedCards = shuffled.slice(0, maxQuestions);
+    
+    // Calculate questions per type (evenly distributed)
+    const questionsPerType = Math.floor(maxQuestions / selectedTypes.length);
+    const remainder = maxQuestions % selectedTypes.length;
+    
+    let cardIndex = 0;
+    let questionIdCounter = 0;
 
-    selectedCards.forEach((card, index) => {
-      // Determine prompt type based on answerWith option
-      let promptType: 'term' | 'definition' = 'definition';
-      let prompt = '';
-      let correctAnswer = '';
+    // Generate questions for each type
+    selectedTypes.forEach((type, typeIndex) => {
+      const countForThisType = questionsPerType + (typeIndex < remainder ? 1 : 0);
+      
+      for (let i = 0; i < countForThisType && cardIndex < shuffled.length; i++) {
+        const card = shuffled[cardIndex];
+        cardIndex++;
 
-      if (testOptions.answerWith === 'terms') {
-        promptType = 'definition';
-        prompt = card.back;
-        correctAnswer = card.front;
-      } else if (testOptions.answerWith === 'definitions') {
-        promptType = 'term';
-        prompt = card.front;
-        correctAnswer = card.back;
-      } else {
-        // Both - randomly choose
-        const useDefinition = Math.random() > 0.5;
-        if (useDefinition) {
+        // Determine prompt type based on answerWith option
+        let promptType: 'term' | 'definition' = 'definition';
+        let prompt = '';
+        let correctAnswer = '';
+
+        if (testOptions.answerWith === 'terms') {
           promptType = 'definition';
           prompt = card.back;
           correctAnswer = card.front;
-        } else {
+        } else if (testOptions.answerWith === 'definitions') {
           promptType = 'term';
           prompt = card.front;
           correctAnswer = card.back;
+        } else {
+          // Both - randomly choose
+          const useDefinition = Math.random() > 0.5;
+          if (useDefinition) {
+            promptType = 'definition';
+            prompt = card.back;
+            correctAnswer = card.front;
+          } else {
+            promptType = 'term';
+            prompt = card.front;
+            correctAnswer = card.back;
+          }
         }
-      }
 
-      if (testOptions.multipleChoice) {
-        // Generate multiple choice question
-        const otherCards = flashcards.filter(c => c !== card);
-        const shuffledOthers = [...otherCards].sort(() => Math.random() - 0.5);
-        const wrongAnswers = shuffledOthers.slice(0, 3).map(c => 
-          promptType === 'definition' ? c.front : c.back
-        );
-        
-        const allOptions = [correctAnswer, ...wrongAnswers].sort(() => Math.random() - 0.5);
-        const correctIndex = allOptions.indexOf(correctAnswer);
+        if (type === 'multiple-choice') {
+          // Generate multiple choice question
+          const otherCards = flashcards.filter(c => c !== card);
+          const shuffledOthers = [...otherCards].sort(() => Math.random() - 0.5);
+          const wrongAnswers = shuffledOthers.slice(0, 3).map(c => 
+            promptType === 'definition' ? c.front : c.back
+          );
+          
+          const allOptions = [correctAnswer, ...wrongAnswers].sort(() => Math.random() - 0.5);
+          const correctIndex = allOptions.indexOf(correctAnswer);
 
-        generatedQuestions.push({
-          id: `q-${index}`,
-          type: 'multiple-choice',
-          prompt,
-          promptType,
-          correctAnswer,
-          options: allOptions,
-          correctIndex,
-        });
+          generatedQuestions.push({
+            id: `q-${questionIdCounter++}`,
+            type: 'multiple-choice',
+            prompt,
+            promptType,
+            correctAnswer,
+            options: allOptions,
+            correctIndex,
+          });
+        } else if (type === 'true-false') {
+          // Generate true/false question
+          // Randomly decide if the statement is true or false
+          const isTrue = Math.random() > 0.5;
+          let trueFalsePrompt = '';
+          
+          if (isTrue) {
+            // True statement: "X is Y" format
+            trueFalsePrompt = `${promptType === 'term' ? prompt : correctAnswer} is ${promptType === 'term' ? correctAnswer : prompt}`;
+          } else {
+            // False statement: use a wrong answer
+            const otherCards = flashcards.filter(c => c !== card);
+            if (otherCards.length > 0) {
+              const wrongCard = otherCards[Math.floor(Math.random() * otherCards.length)];
+              const wrongAnswer = promptType === 'definition' ? wrongCard.front : wrongCard.back;
+              trueFalsePrompt = `${promptType === 'term' ? prompt : wrongAnswer} is ${promptType === 'term' ? wrongAnswer : prompt}`;
+            } else {
+              // Fallback if no other cards
+              trueFalsePrompt = `${promptType === 'term' ? prompt : correctAnswer} is ${promptType === 'term' ? correctAnswer : prompt}`;
+              // Make it true if we can't generate a false statement
+            }
+          }
+
+          generatedQuestions.push({
+            id: `q-${questionIdCounter++}`,
+            type: 'true-false',
+            prompt: trueFalsePrompt,
+            promptType,
+            correctAnswer: isTrue ? 'True' : 'False',
+            isTrue,
+          });
+        } else if (type === 'matching') {
+          // Generate matching question - need at least 4 cards for good matching
+          // Check if we have enough cards remaining
+          if (cardIndex + 3 < shuffled.length) {
+            const matchingCards = shuffled.slice(cardIndex, Math.min(cardIndex + 4, shuffled.length));
+            if (matchingCards.length >= 4) {
+              const pairs = matchingCards.slice(0, 4).map(c => ({
+                term: c.front,
+                definition: c.back,
+              }));
+              
+              generatedQuestions.push({
+                id: `q-${questionIdCounter++}`,
+                type: 'matching',
+                prompt: 'Match each term with its definition',
+                promptType: 'term',
+                correctAnswer: '', // Not used for matching
+                matchingPairs: pairs,
+              });
+              
+              // Skip the next 3 cards since we used them for matching
+              cardIndex += 3;
+            } else {
+              // Not enough cards for matching, skip this question
+              cardIndex--;
+            }
+          } else {
+            // Not enough cards remaining, skip this question
+            cardIndex--;
+          }
+        } else if (type === 'written') {
+          // Generate written question
+          generatedQuestions.push({
+            id: `q-${questionIdCounter++}`,
+            type: 'written',
+            prompt,
+            promptType,
+            correctAnswer,
+          });
+        }
       }
     });
 
-    setQuestions(generatedQuestions);
+    // Shuffle all questions
+    const finalQuestions = generatedQuestions.sort(() => Math.random() - 0.5);
+    
+    setQuestions(finalQuestions);
     setShowSetup(false);
     setTestStartTime(Date.now());
   };
@@ -188,6 +294,41 @@ export default function PracticeTest() {
         calculateScore();
       }
     }, 500);
+  };
+
+  const handleTrueFalse = (questionId: string, answer: boolean) => {
+    setSelectedAnswers(prev => ({
+      ...prev,
+      [questionId]: answer,
+    }));
+    // Auto-advance to next question after a short delay
+    setTimeout(() => {
+      if (currentQuestionIndex < questions.length - 1) {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+      } else {
+        calculateScore();
+      }
+    }, 500);
+  };
+
+  const handleMatching = (questionId: string, term: string, definition: string) => {
+    setSelectedAnswers(prev => {
+      const current = prev[questionId] as { [key: string]: string } || {};
+      return {
+        ...prev,
+        [questionId]: {
+          ...current,
+          [term]: definition,
+        },
+      };
+    });
+  };
+
+  const handleWrittenAnswer = (questionId: string, answer: string) => {
+    setSelectedAnswers(prev => ({
+      ...prev,
+      [questionId]: answer,
+    }));
   };
 
   const handleDontKnow = (questionId: string) => {
@@ -211,15 +352,59 @@ export default function PracticeTest() {
     
     questions.forEach(q => {
       const selected = selectedAnswers[q.id];
-      if (selected !== null && selected !== undefined && selected !== -1) {
-        if (selected === q.correctIndex) {
-          correct++;
+      
+      if (q.type === 'multiple-choice') {
+        if (selected !== null && selected !== undefined && selected !== -1) {
+          if (selected === q.correctIndex) {
+            correct++;
+          } else {
+            incorrect++;
+          }
         } else {
           incorrect++;
         }
-      } else {
-        // Don't know or unanswered counts as incorrect
-        incorrect++;
+      } else if (q.type === 'true-false') {
+        if (selected !== null && selected !== undefined && selected !== -1) {
+          const isCorrect = (selected === true && q.isTrue) || (selected === false && !q.isTrue);
+          if (isCorrect) {
+            correct++;
+          } else {
+            incorrect++;
+          }
+        } else {
+          incorrect++;
+        }
+      } else if (q.type === 'matching') {
+        if (selected && typeof selected === 'object' && q.matchingPairs) {
+          let allCorrect = true;
+          q.matchingPairs.forEach(pair => {
+            const userMatch = (selected as { [key: string]: string })[pair.term];
+            if (userMatch !== pair.definition) {
+              allCorrect = false;
+            }
+          });
+          if (allCorrect && Object.keys(selected as object).length === q.matchingPairs.length) {
+            correct++;
+          } else {
+            incorrect++;
+          }
+        } else {
+          incorrect++;
+        }
+      } else if (q.type === 'written') {
+        if (selected && typeof selected === 'string' && selected.trim()) {
+          // For written questions, check if answer is close enough (case-insensitive, trimmed)
+          const userAnswer = selected.trim().toLowerCase();
+          const correctAnswer = q.correctAnswer.trim().toLowerCase();
+          // Simple exact match for now - could be enhanced with fuzzy matching
+          if (userAnswer === correctAnswer) {
+            correct++;
+          } else {
+            incorrect++;
+          }
+        } else {
+          incorrect++;
+        }
       }
     });
     
@@ -286,9 +471,17 @@ export default function PracticeTest() {
   const maxQuestions = flashcards.length;
   const currentQuestion = questions[currentQuestionIndex];
   const nextQuestion = questions[currentQuestionIndex + 1];
-  const answeredCount = Object.keys(selectedAnswers).filter(
-    key => selectedAnswers[key] !== null && selectedAnswers[key] !== undefined
-  ).length;
+  const answeredCount = questions.filter(q => {
+    const answer = selectedAnswers[q.id];
+    if (answer === null || answer === undefined || answer === -1) return false;
+    if (q.type === 'matching' && typeof answer === 'object') {
+      return Object.keys(answer).length > 0;
+    }
+    if (q.type === 'written' && typeof answer === 'string') {
+      return answer.trim().length > 0;
+    }
+    return true;
+  }).length;
 
   // Setup Modal
   if (showSetup) {
@@ -452,9 +645,41 @@ export default function PracticeTest() {
   if (showResults) {
     const percentage = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
     const reviewQuestion = questions[reviewQuestionIndex];
-    const selectedAnswerIndex = reviewQuestion ? selectedAnswers[reviewQuestion.id] : null;
-    const isCorrect = reviewQuestion && selectedAnswerIndex !== null && selectedAnswerIndex !== undefined && selectedAnswerIndex !== -1 && selectedAnswerIndex === reviewQuestion.correctIndex;
-    const isIncorrect = reviewQuestion && selectedAnswerIndex !== null && selectedAnswerIndex !== undefined && selectedAnswerIndex !== -1 && selectedAnswerIndex !== reviewQuestion.correctIndex;
+    const selectedAnswer = reviewQuestion ? selectedAnswers[reviewQuestion.id] : null;
+    
+    // Determine if answer is correct based on question type
+    let isCorrect = false;
+    let isIncorrect = false;
+    
+    if (reviewQuestion && selectedAnswer !== null && selectedAnswer !== undefined && selectedAnswer !== -1) {
+      if (reviewQuestion.type === 'multiple-choice') {
+        isCorrect = selectedAnswer === reviewQuestion.correctIndex;
+        isIncorrect = !isCorrect;
+      } else if (reviewQuestion.type === 'true-false') {
+        isCorrect = (selectedAnswer === true && reviewQuestion.isTrue) || (selectedAnswer === false && !reviewQuestion.isTrue);
+        isIncorrect = !isCorrect;
+      } else if (reviewQuestion.type === 'matching') {
+        if (selectedAnswer && typeof selectedAnswer === 'object' && reviewQuestion.matchingPairs) {
+          isCorrect = reviewQuestion.matchingPairs.every(pair => 
+            (selectedAnswer as { [key: string]: string })[pair.term] === pair.definition
+          ) && Object.keys(selectedAnswer as object).length === reviewQuestion.matchingPairs.length;
+          isIncorrect = !isCorrect;
+        } else {
+          isIncorrect = true;
+        }
+      } else if (reviewQuestion.type === 'written') {
+        if (selectedAnswer && typeof selectedAnswer === 'string') {
+          isCorrect = selectedAnswer.trim().toLowerCase() === reviewQuestion.correctAnswer.trim().toLowerCase();
+          isIncorrect = !isCorrect;
+        } else {
+          isIncorrect = true;
+        }
+      }
+    } else if (selectedAnswer === -1) {
+      isIncorrect = true;
+    } else {
+      isIncorrect = true;
+    }
 
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -577,7 +802,10 @@ export default function PracticeTest() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-900 dark:text-gray-100 capitalize">
-                      {reviewQuestion.promptType}
+                      {reviewQuestion.type === 'multiple-choice' ? 'Multiple Choice' : 
+                       reviewQuestion.type === 'true-false' ? 'True/False' :
+                       reviewQuestion.type === 'matching' ? 'Matching' :
+                       reviewQuestion.type === 'written' ? 'Written' : reviewQuestion.promptType}
                     </span>
                     <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -593,7 +821,8 @@ export default function PracticeTest() {
                 
                 {/* Show selected answer and correct answer */}
                 <div className="space-y-3">
-                  {selectedAnswerIndex !== null && selectedAnswerIndex !== undefined && selectedAnswerIndex !== -1 && (
+                  {/* Multiple Choice */}
+                  {reviewQuestion.type === 'multiple-choice' && selectedAnswer !== null && selectedAnswer !== undefined && selectedAnswer !== -1 && reviewQuestion.options && (
                     <div className={`p-4 rounded-lg border-2 ${
                       isCorrect 
                         ? 'border-green-500 bg-green-50 dark:bg-green-900/30' 
@@ -606,17 +835,91 @@ export default function PracticeTest() {
                           {isCorrect ? '✓ Correct' : '✗ Your answer'}
                         </span>
                       </div>
-                      <p className="text-gray-900 dark:text-gray-100">{reviewQuestion.options[selectedAnswerIndex]}</p>
+                      <p className="text-gray-900 dark:text-gray-100">{reviewQuestion.options[selectedAnswer as number]}</p>
                     </div>
                   )}
                   
-                  {selectedAnswerIndex === -1 && (
+                  {/* True/False */}
+                  {reviewQuestion.type === 'true-false' && selectedAnswer !== null && selectedAnswer !== undefined && selectedAnswer !== -1 && (
+                    <div className={`p-4 rounded-lg border-2 ${
+                      isCorrect 
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/30' 
+                        : 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`text-sm font-medium ${
+                          isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+                        }`}>
+                          {isCorrect ? '✓ Correct' : '✗ Your answer'}
+                        </span>
+                      </div>
+                      <p className="text-gray-900 dark:text-gray-100">{selectedAnswer === true ? 'True' : 'False'}</p>
+                    </div>
+                  )}
+                  
+                  {/* Matching */}
+                  {reviewQuestion.type === 'matching' && selectedAnswer && typeof selectedAnswer === 'object' && reviewQuestion.matchingPairs && (
+                    <div className={`p-4 rounded-lg border-2 ${
+                      isCorrect 
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/30' 
+                        : 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className={`text-sm font-medium ${
+                          isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+                        }`}>
+                          {isCorrect ? '✓ All matches correct' : '✗ Your matches'}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {reviewQuestion.matchingPairs.map((pair, idx) => {
+                          const userMatch = (selectedAnswer as { [key: string]: string })[pair.term];
+                          const isMatchCorrect = userMatch === pair.definition;
+                          return (
+                            <div key={idx} className="p-3 bg-white dark:bg-gray-700 rounded border">
+                              <p className="font-medium text-gray-900 dark:text-gray-100">{pair.term}</p>
+                              <p className={`text-sm ${isMatchCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                Your match: {userMatch || '(not matched)'}
+                              </p>
+                              {!isMatchCorrect && (
+                                <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                                  Correct: {pair.definition}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Written */}
+                  {reviewQuestion.type === 'written' && selectedAnswer && typeof selectedAnswer === 'string' && (
+                    <div className={`p-4 rounded-lg border-2 ${
+                      isCorrect 
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/30' 
+                        : 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`text-sm font-medium ${
+                          isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+                        }`}>
+                          {isCorrect ? '✓ Correct' : '✗ Your answer'}
+                        </span>
+                      </div>
+                      <p className="text-gray-900 dark:text-gray-100">{selectedAnswer}</p>
+                    </div>
+                  )}
+                  
+                  {/* Don't know */}
+                  {selectedAnswer === -1 && (
                     <div className="p-4 rounded-lg border-2 border-gray-300 bg-gray-50 dark:bg-gray-700">
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Don't know</span>
                     </div>
                   )}
                   
-                  {!isCorrect && (
+                  {/* Show correct answer if incorrect */}
+                  {!isCorrect && reviewQuestion.type !== 'matching' && (
                     <div className="p-4 rounded-lg border-2 border-green-500 bg-green-50 dark:bg-green-900/30">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-green-700 dark:text-green-400">✓ Correct answer</span>
@@ -678,7 +981,7 @@ export default function PracticeTest() {
               {answeredCount} / {questions.length}
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{studySet.title}</div>
-            {currentQuestion && (
+            {currentQuestion && (currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'true-false') && (
               <button
                 onClick={() => handleDontKnow(currentQuestion.id)}
                 className="text-sm text-[#0055FF] dark:text-blue-400 hover:underline mt-1"
@@ -719,7 +1022,10 @@ export default function PracticeTest() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-900 dark:text-gray-100 capitalize">
-                  {currentQuestion.promptType}
+                  {currentQuestion.type === 'multiple-choice' ? 'Multiple Choice' : 
+                   currentQuestion.type === 'true-false' ? 'True/False' :
+                   currentQuestion.type === 'matching' ? 'Matching' :
+                   currentQuestion.type === 'written' ? 'Written' : currentQuestion.promptType}
                 </span>
                 <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -737,38 +1043,116 @@ export default function PracticeTest() {
               {currentQuestion.prompt}
             </p>
 
-            {/* Answer Options */}
-            <div className="mb-6">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose an answer</p>
-              <div className="grid grid-cols-2 gap-4">
-                {currentQuestion.options.map((option, index) => {
-                  const isSelected = selectedAnswers[currentQuestion.id] === index;
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => handleAnswerSelect(currentQuestion.id, index)}
-                      className={`p-4 rounded-lg border-2 text-left transition-all ${
-                        isSelected
-                          ? 'border-[#0055FF] bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
+            {/* Answer Options - Multiple Choice */}
+            {currentQuestion.type === 'multiple-choice' && currentQuestion.options && (
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose an answer</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {currentQuestion.options.map((option, index) => {
+                    const isSelected = selectedAnswers[currentQuestion.id] === index;
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => handleAnswerSelect(currentQuestion.id, index)}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                          isSelected
+                            ? 'border-[#0055FF] bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Don't Know */}
-            <div className="text-center">
-              <button
-                onClick={() => handleDontKnow(currentQuestion.id)}
-                className="text-sm text-[#0055FF] dark:text-blue-400 hover:underline"
-              >
-                Don't know?
-              </button>
-            </div>
+            {/* Answer Options - True/False */}
+            {currentQuestion.type === 'true-false' && (
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose an answer</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => handleTrueFalse(currentQuestion.id, true)}
+                    className={`p-6 rounded-lg border-2 text-center transition-all font-medium ${
+                      selectedAnswers[currentQuestion.id] === true
+                        ? 'border-[#0055FF] bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    True
+                  </button>
+                  <button
+                    onClick={() => handleTrueFalse(currentQuestion.id, false)}
+                    className={`p-6 rounded-lg border-2 text-center transition-all font-medium ${
+                      selectedAnswers[currentQuestion.id] === false
+                        ? 'border-[#0055FF] bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    False
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Answer Options - Matching */}
+            {currentQuestion.type === 'matching' && currentQuestion.matchingPairs && (
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Match each term with its definition</p>
+                <div className="space-y-4">
+                  {currentQuestion.matchingPairs.map((pair, index) => {
+                    const userMatching = selectedAnswers[currentQuestion.id] as { [key: string]: string } || {};
+                    const selectedDefinition = userMatching[pair.term];
+                    const availableDefinitions = currentQuestion.matchingPairs!.map(p => p.definition);
+                    
+                    return (
+                      <div key={index} className="flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">{pair.term}</p>
+                          <select
+                            value={selectedDefinition || ''}
+                            onChange={(e) => handleMatching(currentQuestion.id, pair.term, e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black dark:text-white bg-white dark:bg-gray-700"
+                          >
+                            <option value="">Select definition...</option>
+                            {availableDefinitions.map((def, defIndex) => (
+                              <option key={defIndex} value={def}>{def}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Answer Options - Written */}
+            {currentQuestion.type === 'written' && (
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Type your answer</p>
+                <textarea
+                  value={(selectedAnswers[currentQuestion.id] as string) || ''}
+                  onChange={(e) => handleWrittenAnswer(currentQuestion.id, e.target.value)}
+                  placeholder="Enter your answer here..."
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black dark:text-white bg-white dark:bg-gray-700 min-h-[120px] resize-y"
+                />
+              </div>
+            )}
+
+            {/* Don't Know - Only show for multiple choice and true/false */}
+            {(currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'true-false') && (
+              <div className="text-center">
+                <button
+                  onClick={() => handleDontKnow(currentQuestion.id)}
+                  className="text-sm text-[#0055FF] dark:text-blue-400 hover:underline"
+                >
+                  Don't know?
+                </button>
+              </div>
+            )}
           </div>
         )}
 

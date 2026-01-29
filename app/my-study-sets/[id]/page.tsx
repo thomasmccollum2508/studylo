@@ -41,6 +41,10 @@ export default function StudySetDetail() {
       try {
         setLoading(true);
         const supabase = createClient();
+        if (!supabase) {
+          setLoading(false);
+          return;
+        }
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
@@ -362,14 +366,6 @@ export default function StudySetDetail() {
 
         {/* Bottom Action Buttons */}
         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-4 z-10">
-          <button className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M11 4H4C3.44772 4 3 4.44772 3 5V19C3 19.5523 3.44772 20 4 20H18C18.5523 20 19 19.5523 19 19V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M18.5 2.5C18.8978 2.90217 19.1213 3.43739 19.1213 4C19.1213 4.56261 18.8978 5.09783 18.5 5.5L12 12L8 13L9 9L15.5 2.5C15.9022 2.10217 16.4374 1.87868 17 1.87868C17.5626 1.87868 18.0978 2.10217 18.5 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Edit outline
-          </button>
-          
           {/* Study Button with Dropdown */}
           <div className="relative study-menu-container">
             <button 
@@ -416,6 +412,18 @@ export default function StudySetDetail() {
                       <path d="M8 17H12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
                     Flashcards
+                  </Link>
+                  <Link
+                    href={`/my-study-sets/${params.id}/learn`}
+                    onClick={() => setShowStudyMenu(false)}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Learn
                   </Link>
                   <Link
                     href={`/my-study-sets/${params.id}/practice`}

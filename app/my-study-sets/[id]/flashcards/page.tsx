@@ -11,6 +11,19 @@ interface Flashcard {
   back: string;
 }
 
+interface FlashcardMastery {
+  mastery_level: number;
+  times_known: number;
+  times_unknown: number;
+  last_reviewed_at: string | null;
+  is_mastered: boolean;
+}
+
+interface FlashcardWithMastery extends Flashcard {
+  mastery?: FlashcardMastery;
+  cardId: string; // Unique identifier for the card
+}
+
 export default function Flashcards() {
   const params = useParams();
   const router = useRouter();
@@ -24,12 +37,19 @@ export default function Flashcards() {
   const [trackProgress, setTrackProgress] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [starredCards, setStarredCards] = useState<Set<number>>(new Set());
+  const [cardsWithMastery, setCardsWithMastery] = useState<FlashcardWithMastery[]>([]);
+  const [reviewMastered, setReviewMastered] = useState(false);
+  const [showMasteryButtons, setShowMasteryButtons] = useState(false);
 
   useEffect(() => {
     async function loadStudySet() {
       try {
         setLoading(true);
         const supabase = createClient();
+        if (!supabase) {
+          setLoading(false);
+          return;
+        }
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
@@ -70,6 +90,7 @@ export default function Flashcards() {
           // For AI-generated flashcards, only use if >10 cards (skip old "limit 10" cache)
           if (!savedContent || parsed.length > 10) {
             setCards(parsed);
+            initializeCardsWithMastery(parsed, studySetId);
             setLoading(false);
           } else {
             // Old AI-generated set with ≤10 cards - regenerate
@@ -100,6 +121,20 @@ export default function Flashcards() {
     }
   }, [params.id, router]);
 
+  // Adjust currentCardIndex when filtered cards change
+  useEffect(() => {
+    const filtered = getFilteredCards();
+    if (filtered.length > 0 && currentCardIndex >= filtered.length) {
+      setCurrentCardIndex(0);
+      setIsFlipped(false);
+      setShowMasteryButtons(false);
+    } else if (filtered.length === 0 && cardsWithMastery.length > 0) {
+      // All cards are mastered and reviewMastered is false
+      setIsFlipped(false);
+      setShowMasteryButtons(false);
+    }
+  }, [cardsWithMastery, reviewMastered]);
+
   const generateFlashcards = async (notesContent: string, studySetId: string) => {
     try {
       setGenerating(true);
@@ -127,6 +162,8 @@ export default function Flashcards() {
         setCards(data.cards);
         // Save flashcards to localStorage
         localStorage.setItem(`flashcards-${studySetId}`, JSON.stringify(data.cards));
+        // Initialize mastery data for new cards
+        initializeCardsWithMastery(data.cards, studySetId);
       } else {
         console.error('Error generating flashcards:', data.error);
         // Create fallback flashcards
@@ -163,19 +200,206 @@ export default function Flashcards() {
     
     if (fallbackCards.length > 0) {
       setCards(fallbackCards);
+      const studySetId = params.id as string;
+      initializeCardsWithMastery(fallbackCards, studySetId);
     }
+  };
+
+  // Initialize mastery for a card
+  const initializeMastery = (cardId: string): FlashcardMastery => ({
+    mastery_level: 0,
+    times_known: 0,
+    times_unknown: 0,
+    last_reviewed_at: null,
+    is_mastered: false,
+  });
+
+  // Load mastery data from localStorage
+  const loadMasteryData = (studySetId: string): { [cardId: string]: FlashcardMastery } => {
+    try {
+      const saved = localStorage.getItem(`flashcard-mastery-${studySetId}`);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Error loading mastery data:', error);
+    }
+    return {};
+  };
+
+  // Save mastery data to localStorage
+  const saveMasteryData = (studySetId: string, masteryData: { [cardId: string]: FlashcardMastery }) => {
+    try {
+      localStorage.setItem(`flashcard-mastery-${studySetId}`, JSON.stringify(masteryData));
+    } catch (error) {
+      console.error('Error saving mastery data:', error);
+    }
+  };
+
+  // Get card ID from flashcard content (hash-based for consistency)
+  const getCardId = (card: Flashcard): string => {
+    return `${card.front}-${card.back}`;
+  };
+
+  // Initialize cards with mastery data
+  const initializeCardsWithMastery = (flashcards: Flashcard[], studySetId: string) => {
+    const masteryData = loadMasteryData(studySetId);
+    const cardsWithMastery: FlashcardWithMastery[] = flashcards.map(card => {
+      const cardId = getCardId(card);
+      return {
+        ...card,
+        cardId,
+        mastery: masteryData[cardId] || initializeMastery(cardId),
+      };
+    });
+    setCardsWithMastery(cardsWithMastery);
+  };
+
+  // Get filtered and sorted cards based on mastery
+  const getFilteredCards = (): FlashcardWithMastery[] => {
+    let filtered = [...cardsWithMastery];
+    
+    // Filter out mastered cards unless reviewMastered is enabled
+    if (!reviewMastered) {
+      filtered = filtered.filter(card => !card.mastery?.is_mastered);
+    }
+    
+    // Sort by mastery_level (lowest first), then by last_reviewed_at (oldest first)
+    filtered.sort((a, b) => {
+      const aLevel = a.mastery?.mastery_level || 0;
+      const bLevel = b.mastery?.mastery_level || 0;
+      if (aLevel !== bLevel) {
+        return aLevel - bLevel;
+      }
+      const aLastReviewed = a.mastery?.last_reviewed_at || '';
+      const bLastReviewed = b.mastery?.last_reviewed_at || '';
+      if (aLastReviewed && bLastReviewed) {
+        return new Date(aLastReviewed).getTime() - new Date(bLastReviewed).getTime();
+      }
+      if (aLastReviewed) return 1;
+      if (bLastReviewed) return -1;
+      return 0;
+    });
+    
+    return filtered;
   };
 
   const flipCard = () => {
-    setIsFlipped(!isFlipped);
+    if (!isFlipped) {
+      // When revealing the answer, show mastery buttons if trackProgress is enabled
+      setIsFlipped(true);
+      if (trackProgress) {
+        setShowMasteryButtons(true);
+      }
+    } else {
+      setIsFlipped(false);
+      setShowMasteryButtons(false);
+    }
+  };
+
+  // Handle "I know this" button
+  const handleKnow = () => {
+    const studySetId = params.id as string;
+    const filteredCards = getFilteredCards();
+    if (filteredCards.length === 0) return;
+    
+    const currentCard = filteredCards[currentCardIndex];
+    if (!currentCard) return;
+    
+    const mastery = currentCard.mastery || initializeMastery(currentCard.cardId);
+    mastery.mastery_level = Math.min(mastery.mastery_level + 1, 10); // Cap at 10
+    mastery.times_known += 1;
+    mastery.last_reviewed_at = new Date().toISOString();
+    
+    // Check if mastered (mastery_level >= 3)
+    if (mastery.mastery_level >= 3) {
+      mastery.is_mastered = true;
+    }
+    
+    // Update the card in cardsWithMastery
+    setCardsWithMastery(prev => {
+      const updated = prev.map(card => 
+        card.cardId === currentCard.cardId 
+          ? { ...card, mastery: { ...mastery } }
+          : card
+      );
+      
+      // Save to localStorage
+      const masteryData: { [cardId: string]: FlashcardMastery } = {};
+      updated.forEach(card => {
+        if (card.mastery) {
+          masteryData[card.cardId] = card.mastery;
+        }
+      });
+      saveMasteryData(studySetId, masteryData);
+      
+      return updated;
+    });
+    
+    // Move to next card immediately
+    setTimeout(() => {
+      goToNextCard();
+    }, 100);
+  };
+
+  // Handle "I don't know this" button
+  const handleDontKnow = () => {
+    const studySetId = params.id as string;
+    const filteredCards = getFilteredCards();
+    if (filteredCards.length === 0) return;
+    
+    const currentCard = filteredCards[currentCardIndex];
+    if (!currentCard) return;
+    
+    const mastery = currentCard.mastery || initializeMastery(currentCard.cardId);
+    mastery.mastery_level = Math.max(mastery.mastery_level - 1, 0); // Minimum 0
+    mastery.times_unknown += 1;
+    mastery.last_reviewed_at = new Date().toISOString();
+    
+    // If mastery drops below 3, un-master it
+    if (mastery.mastery_level < 3) {
+      mastery.is_mastered = false;
+    }
+    
+    // Update the card in cardsWithMastery
+    setCardsWithMastery(prev => {
+      const updated = prev.map(card => 
+        card.cardId === currentCard.cardId 
+          ? { ...card, mastery: { ...mastery } }
+          : card
+      );
+      
+      // Save to localStorage
+      const masteryData: { [cardId: string]: FlashcardMastery } = {};
+      updated.forEach(card => {
+        if (card.mastery) {
+          masteryData[card.cardId] = card.mastery;
+        }
+      });
+      saveMasteryData(studySetId, masteryData);
+      
+      return updated;
+    });
+    
+    // Move to next card immediately
+    setTimeout(() => {
+      goToNextCard();
+    }, 100);
   };
 
   const goToNextCard = () => {
-    if (currentCardIndex < cards.length - 1) {
+    const filtered = getFilteredCards();
+    if (filtered.length === 0) return;
+    
+    if (currentCardIndex < filtered.length - 1) {
       setCurrentCardIndex(currentCardIndex + 1);
-      setIsFlipped(false);
-      setShowHint(false);
+    } else {
+      // Reached end, reset to beginning
+      setCurrentCardIndex(0);
     }
+    setIsFlipped(false);
+    setShowHint(false);
+    setShowMasteryButtons(false);
   };
 
   const goToPreviousCard = () => {
@@ -183,6 +407,7 @@ export default function Flashcards() {
       setCurrentCardIndex(currentCardIndex - 1);
       setIsFlipped(false);
       setShowHint(false);
+      setShowMasteryButtons(false);
     }
   };
 
@@ -203,13 +428,72 @@ export default function Flashcards() {
     setCurrentCardIndex(0);
     setIsFlipped(false);
     setShowHint(false);
+    setShowMasteryButtons(false);
     await generateFlashcards(savedContent, id);
   };
 
+  // Reset mastery for current card
+  const resetCurrentCardMastery = () => {
+    const studySetId = params.id as string;
+    const filteredCards = getFilteredCards();
+    if (filteredCards.length === 0) return;
+    
+    const currentCard = filteredCards[currentCardIndex];
+    if (!currentCard) return;
+    
+    const resetMastery = initializeMastery(currentCard.cardId);
+    
+    setCardsWithMastery(prev => {
+      const updated = prev.map(card => 
+        card.cardId === currentCard.cardId 
+          ? { ...card, mastery: resetMastery }
+          : card
+      );
+      
+      // Save to localStorage
+      const masteryData: { [cardId: string]: FlashcardMastery } = {};
+      updated.forEach(card => {
+        if (card.mastery) {
+          masteryData[card.cardId] = card.mastery;
+        }
+      });
+      saveMasteryData(studySetId, masteryData);
+      
+      return updated;
+    });
+  };
+
+  // Reset mastery for entire study set
+  const resetAllMastery = () => {
+    if (!window.confirm('Are you sure you want to reset mastery for all flashcards in this set?')) {
+      return;
+    }
+    
+    const studySetId = params.id as string;
+    const resetMasteryData: { [cardId: string]: FlashcardMastery } = {};
+    
+    setCardsWithMastery(prev => {
+      const updated = prev.map(card => {
+        const resetMastery = initializeMastery(card.cardId);
+        resetMasteryData[card.cardId] = resetMastery;
+        return { ...card, mastery: resetMastery };
+      });
+      
+      saveMasteryData(studySetId, resetMasteryData);
+      return updated;
+    });
+    
+    setCurrentCardIndex(0);
+    setIsFlipped(false);
+    setShowHint(false);
+    setShowMasteryButtons(false);
+  };
+
+  const filteredCards = getFilteredCards();
+  const currentCardWithMastery = filteredCards[currentCardIndex];
+  const currentCard = currentCardWithMastery || { front: '', back: '', cardId: '' };
+  const hint = currentCard.back ? (currentCard.back.slice(0, 80) + (currentCard.back.length > 80 ? '…' : '')) : '';
   const isStarred = starredCards.has(currentCardIndex);
-  const hint = currentCardIndex < cards.length
-    ? (cards[currentCardIndex]?.back ?? '').slice(0, 80) + ((cards[currentCardIndex]?.back ?? '').length > 80 ? '…' : '')
-    : '';
 
   if (loading || generating) {
     return (
@@ -224,7 +508,7 @@ export default function Flashcards() {
     );
   }
 
-  if (!studySet || cards.length === 0) {
+  if (!studySet || cardsWithMastery.length === 0) {
     return (
       <div className="flex h-screen bg-white dark:bg-gray-900 items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
@@ -242,7 +526,24 @@ export default function Flashcards() {
     );
   }
 
-  const currentCard = cards[currentCardIndex];
+  // Check if we have any cards to show
+  if (filteredCards.length === 0) {
+    return (
+      <div className="flex h-screen bg-white dark:bg-gray-900 items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            All flashcards are mastered! Enable "Review mastered" to see them again.
+          </p>
+          <Link 
+            href={`/my-study-sets/${params.id}`}
+            className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            Back to Study Set
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -267,17 +568,27 @@ export default function Flashcards() {
 
           <div className="flex flex-col items-end gap-1">
             <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {currentCardIndex + 1} / {cards.length}
+              {filteredCards.length > 0 ? currentCardIndex + 1 : 0} / {filteredCards.length || cardsWithMastery.length}
             </span>
             <span className="text-sm text-gray-500 dark:text-gray-400">{studySet.title}</span>
-            <button
-              type="button"
-              onClick={handleRegenerate}
-              disabled={generating}
-              className="text-xs text-[#0055FF] dark:text-blue-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {generating ? 'Regenerating…' : 'Regenerate flashcards'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRegenerate}
+                disabled={generating}
+                className="text-xs text-[#0055FF] dark:text-blue-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generating ? 'Regenerating…' : 'Regenerate'}
+              </button>
+              <span className="text-xs text-gray-400">|</span>
+              <button
+                type="button"
+                onClick={resetAllMastery}
+                className="text-xs text-red-500 dark:text-red-400 hover:underline"
+              >
+                Reset mastery
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -289,8 +600,7 @@ export default function Flashcards() {
           style={{ minHeight: '420px', perspective: '1000px' }}
         >
           <div
-            className="relative w-full h-full cursor-pointer"
-            onClick={flipCard}
+            className="relative w-full h-full"
             style={{
               transformStyle: 'preserve-3d',
               transition: 'transform 0.5s ease',
@@ -351,7 +661,15 @@ export default function Flashcards() {
                 {showHint && hint && (
                   <p className="mt-4 text-sm text-gray-500 dark:text-gray-400 max-w-md">{hint}</p>
                 )}
-                <p className="mt-6 text-sm text-gray-400 dark:text-gray-500">Tap to flip</p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    flipCard();
+                  }}
+                  className="mt-6 px-6 py-2 bg-[#0055FF] hover:bg-[#0044CC] text-white rounded-lg font-medium transition-colors"
+                >
+                  Reveal
+                </button>
               </div>
             </div>
 
@@ -393,10 +711,46 @@ export default function Flashcards() {
                 </div>
               </div>
               <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-                <p className="text-xl lg:text-2xl text-gray-900 dark:text-gray-100 leading-relaxed">
+                <p className="text-xl lg:text-2xl text-gray-900 dark:text-gray-100 leading-relaxed mb-8">
                   {currentCard.back}
                 </p>
-                <p className="mt-6 text-sm text-gray-400 dark:text-gray-500">Tap to flip</p>
+                
+                {/* Mastery Buttons - Only show when card is flipped and trackProgress is enabled */}
+                {showMasteryButtons && trackProgress && (
+                  <div className="flex gap-4 w-full max-w-md">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDontKnow();
+                      }}
+                      className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
+                    >
+                      I don't know this
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKnow();
+                      }}
+                      className="flex-1 px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
+                    >
+                      I know this
+                    </button>
+                  </div>
+                )}
+                
+                {!trackProgress && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsFlipped(false);
+                      setShowMasteryButtons(false);
+                    }}
+                    className="mt-6 px-6 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors"
+                  >
+                    Flip back
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -406,23 +760,59 @@ export default function Flashcards() {
       {/* Bottom Controls */}
       <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 lg:px-10 py-5 transition-colors duration-300 shrink-0">
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-[#0055FF] dark:text-blue-400">Track progress</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={trackProgress}
-              onClick={() => setTrackProgress(!trackProgress)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#0055FF] focus:ring-offset-2 ${
-                trackProgress ? 'bg-[#0055FF]' : 'bg-gray-200 dark:bg-gray-600'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
-                  trackProgress ? 'translate-x-5' : 'translate-x-0.5'
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-[#0055FF] dark:text-blue-400">Track progress</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={trackProgress}
+                onClick={() => {
+                  setTrackProgress(!trackProgress);
+                  if (!trackProgress) {
+                    // When enabling, show mastery buttons if card is flipped
+                    if (isFlipped) {
+                      setShowMasteryButtons(true);
+                    }
+                  } else {
+                    setShowMasteryButtons(false);
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#0055FF] focus:ring-offset-2 ${
+                  trackProgress ? 'bg-[#0055FF]' : 'bg-gray-200 dark:bg-gray-600'
                 }`}
-              />
-            </button>
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
+                    trackProgress ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Review mastered</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={reviewMastered}
+                onClick={() => {
+                  setReviewMastered(!reviewMastered);
+                  setCurrentCardIndex(0);
+                  setIsFlipped(false);
+                  setShowMasteryButtons(false);
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#0055FF] focus:ring-offset-2 ${
+                  reviewMastered ? 'bg-[#0055FF]' : 'bg-gray-200 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
+                    reviewMastered ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -440,7 +830,7 @@ export default function Flashcards() {
             <button
               type="button"
               onClick={goToNextCard}
-              disabled={currentCardIndex === cards.length - 1}
+              disabled={filteredCards.length === 0 || currentCardIndex === filteredCards.length - 1}
               className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-700 transition-colors"
               aria-label="Next card"
             >

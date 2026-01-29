@@ -200,12 +200,6 @@ export default function AIGenerator() {
             Quizzes
           </Link>
 
-          <Link href="/ai-generator" className="flex items-center gap-3 px-3 py-2.5 mb-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-            </svg>
-            AI Generator
-          </Link>
         </nav>
 
         <div className="p-3">
@@ -257,8 +251,8 @@ export default function AIGenerator() {
 
         <main className="flex-1 overflow-y-auto p-8">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">AI Generator</h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-8">Create study materials instantly with AI</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Create Study Set</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">Upload your notes and Studylo turns them into a complete study set with flashcards, practice tests, and more.</p>
             
             {/* Input Method Tabs */}
             <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
