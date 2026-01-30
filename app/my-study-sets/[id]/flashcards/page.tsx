@@ -11,13 +11,15 @@ interface Flashcard {
   back: string;
 }
 
+type MasteryStatus = 'new' | 'learning' | 'mastered';
+
 interface FlashcardMastery {
-  mastery_level: number;
-  times_known: number;
-  times_unknown: number;
-  last_reviewed_at: string | null;
-  is_mastered: boolean;
+  status: MasteryStatus;
+  correctStreak: number;
+  lastReviewedAt: string | null;
 }
+
+const MASTERY_THRESHOLD = 2;
 
 interface FlashcardWithMastery extends Flashcard {
   mastery?: FlashcardMastery;
@@ -205,21 +207,39 @@ export default function Flashcards() {
     }
   };
 
-  // Initialize mastery for a card
   const initializeMastery = (cardId: string): FlashcardMastery => ({
-    mastery_level: 0,
-    times_known: 0,
-    times_unknown: 0,
-    last_reviewed_at: null,
-    is_mastered: false,
+    status: 'new',
+    correctStreak: 0,
+    lastReviewedAt: null,
   });
 
-  // Load mastery data from localStorage
+  const normalizeMastery = (raw: unknown): FlashcardMastery => {
+    if (raw && typeof raw === 'object') {
+      const o = raw as Record<string, unknown>;
+      if (typeof o.status === 'string' && (o.status === 'new' || o.status === 'learning' || o.status === 'mastered') &&
+          typeof o.correctStreak === 'number' && (o.lastReviewedAt === null || typeof o.lastReviewedAt === 'string')) {
+        return { status: o.status as MasteryStatus, correctStreak: o.correctStreak, lastReviewedAt: o.lastReviewedAt as string | null };
+      }
+      const level = typeof o.mastery_level === 'number' ? o.mastery_level : 0;
+      const isMastered = o.is_mastered === true;
+      const lastReviewedAt = (o.last_reviewed_at ?? o.lastReviewedAt) as string | null;
+      return {
+        status: isMastered ? 'mastered' : (level > 0 ? 'learning' : 'new'),
+        correctStreak: isMastered ? MASTERY_THRESHOLD : Math.min(level, MASTERY_THRESHOLD - 1),
+        lastReviewedAt: lastReviewedAt ?? null,
+      };
+    }
+    return initializeMastery('');
+  };
+
   const loadMasteryData = (studySetId: string): { [cardId: string]: FlashcardMastery } => {
     try {
       const saved = localStorage.getItem(`flashcard-mastery-${studySetId}`);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved) as { [cardId: string]: unknown };
+        const result: { [cardId: string]: FlashcardMastery } = {};
+        for (const [id, val] of Object.entries(parsed)) result[id] = normalizeMastery(val);
+        return result;
       }
     } catch (error) {
       console.error('Error loading mastery data:', error);
@@ -255,32 +275,23 @@ export default function Flashcards() {
     setCardsWithMastery(cardsWithMastery);
   };
 
-  // Get filtered and sorted cards based on mastery
   const getFilteredCards = (): FlashcardWithMastery[] => {
     let filtered = [...cardsWithMastery];
-    
-    // Filter out mastered cards unless reviewMastered is enabled
     if (!reviewMastered) {
-      filtered = filtered.filter(card => !card.mastery?.is_mastered);
+      filtered = filtered.filter(card => card.mastery?.status !== 'mastered');
     }
-    
-    // Sort by mastery_level (lowest first), then by last_reviewed_at (oldest first)
     filtered.sort((a, b) => {
-      const aLevel = a.mastery?.mastery_level || 0;
-      const bLevel = b.mastery?.mastery_level || 0;
-      if (aLevel !== bLevel) {
-        return aLevel - bLevel;
-      }
-      const aLastReviewed = a.mastery?.last_reviewed_at || '';
-      const bLastReviewed = b.mastery?.last_reviewed_at || '';
-      if (aLastReviewed && bLastReviewed) {
-        return new Date(aLastReviewed).getTime() - new Date(bLastReviewed).getTime();
-      }
-      if (aLastReviewed) return 1;
-      if (bLastReviewed) return -1;
+      const aStatus = a.mastery?.status ?? 'new';
+      const bStatus = b.mastery?.status ?? 'new';
+      const order = { new: 0, learning: 1, mastered: 2 };
+      if (order[aStatus] !== order[bStatus]) return order[aStatus] - order[bStatus];
+      const aLast = a.mastery?.lastReviewedAt || '';
+      const bLast = b.mastery?.lastReviewedAt || '';
+      if (aLast && bLast) return new Date(aLast).getTime() - new Date(bLast).getTime();
+      if (aLast) return 1;
+      if (bLast) return -1;
       return 0;
     });
-    
     return filtered;
   };
 
@@ -297,94 +308,48 @@ export default function Flashcards() {
     }
   };
 
-  // Handle "I know this" button
   const handleKnow = () => {
     const studySetId = params.id as string;
     const filteredCards = getFilteredCards();
     if (filteredCards.length === 0) return;
-    
     const currentCard = filteredCards[currentCardIndex];
     if (!currentCard) return;
-    
-    const mastery = currentCard.mastery || initializeMastery(currentCard.cardId);
-    mastery.mastery_level = Math.min(mastery.mastery_level + 1, 10); // Cap at 10
-    mastery.times_known += 1;
-    mastery.last_reviewed_at = new Date().toISOString();
-    
-    // Check if mastered (mastery_level >= 3)
-    if (mastery.mastery_level >= 3) {
-      mastery.is_mastered = true;
-    }
-    
-    // Update the card in cardsWithMastery
+    const current = currentCard.mastery || initializeMastery(currentCard.cardId);
+    const updatedMastery: FlashcardMastery = {
+      status: current.status === 'new' ? 'learning' : current.status,
+      correctStreak: current.correctStreak + 1,
+      lastReviewedAt: new Date().toISOString(),
+    };
+    if (updatedMastery.correctStreak >= MASTERY_THRESHOLD) updatedMastery.status = 'mastered';
     setCardsWithMastery(prev => {
-      const updated = prev.map(card => 
-        card.cardId === currentCard.cardId 
-          ? { ...card, mastery: { ...mastery } }
-          : card
-      );
-      
-      // Save to localStorage
+      const updated = prev.map(card => card.cardId === currentCard.cardId ? { ...card, mastery: updatedMastery } : card);
       const masteryData: { [cardId: string]: FlashcardMastery } = {};
-      updated.forEach(card => {
-        if (card.mastery) {
-          masteryData[card.cardId] = card.mastery;
-        }
-      });
+      updated.forEach(card => { if (card.mastery) masteryData[card.cardId] = card.mastery; });
       saveMasteryData(studySetId, masteryData);
-      
       return updated;
     });
-    
-    // Move to next card immediately
-    setTimeout(() => {
-      goToNextCard();
-    }, 100);
+    setTimeout(() => goToNextCard(), 100);
   };
 
-  // Handle "I don't know this" button
   const handleDontKnow = () => {
     const studySetId = params.id as string;
     const filteredCards = getFilteredCards();
     if (filteredCards.length === 0) return;
-    
     const currentCard = filteredCards[currentCardIndex];
     if (!currentCard) return;
-    
-    const mastery = currentCard.mastery || initializeMastery(currentCard.cardId);
-    mastery.mastery_level = Math.max(mastery.mastery_level - 1, 0); // Minimum 0
-    mastery.times_unknown += 1;
-    mastery.last_reviewed_at = new Date().toISOString();
-    
-    // If mastery drops below 3, un-master it
-    if (mastery.mastery_level < 3) {
-      mastery.is_mastered = false;
-    }
-    
-    // Update the card in cardsWithMastery
+    const updatedMastery: FlashcardMastery = {
+      status: 'learning',
+      correctStreak: 0,
+      lastReviewedAt: new Date().toISOString(),
+    };
     setCardsWithMastery(prev => {
-      const updated = prev.map(card => 
-        card.cardId === currentCard.cardId 
-          ? { ...card, mastery: { ...mastery } }
-          : card
-      );
-      
-      // Save to localStorage
+      const updated = prev.map(card => card.cardId === currentCard.cardId ? { ...card, mastery: updatedMastery } : card);
       const masteryData: { [cardId: string]: FlashcardMastery } = {};
-      updated.forEach(card => {
-        if (card.mastery) {
-          masteryData[card.cardId] = card.mastery;
-        }
-      });
+      updated.forEach(card => { if (card.mastery) masteryData[card.cardId] = card.mastery; });
       saveMasteryData(studySetId, masteryData);
-      
       return updated;
     });
-    
-    // Move to next card immediately
-    setTimeout(() => {
-      goToNextCard();
-    }, 100);
+    setTimeout(() => goToNextCard(), 100);
   };
 
   const goToNextCard = () => {

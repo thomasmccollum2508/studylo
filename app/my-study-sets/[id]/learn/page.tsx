@@ -11,12 +11,12 @@ interface Flashcard {
   back: string;
 }
 
+type MasteryStatus = 'new' | 'learning' | 'mastered';
+
 interface FlashcardMastery {
-  mastery_level: number;
-  times_known: number;
-  times_unknown: number;
-  last_reviewed_at: string | null;
-  is_mastered: boolean;
+  status: MasteryStatus;
+  correctStreak: number;
+  lastReviewedAt: string | null;
 }
 
 interface FlashcardWithMastery extends Flashcard {
@@ -47,12 +47,13 @@ export default function LearnMode() {
   const [showSetup, setShowSetup] = useState(true);
   const [questionTypePreference, setQuestionTypePreference] = useState<'multiple-choice' | 'typed-answer' | 'both'>('both');
   
-  // Session state
+  const ROUND_SIZE = 8;
+  const MASTERY_THRESHOLD = 2; // correct answers in separate rounds to master
+
+  // Session state: one round at a time (Quizlet-style)
   const [currentQuestion, setCurrentQuestion] = useState<LearnQuestion | null>(null);
-  const [sessionCards, setSessionCards] = useState<FlashcardWithMastery[]>([]); // Cards in current session
-  const [incorrectCards, setIncorrectCards] = useState<FlashcardWithMastery[]>([]); // Cards to repeat
-  const [correctCards, setCorrectCards] = useState<FlashcardWithMastery[]>([]); // Cards answered correctly (delayed)
-  const [correctCardDelays, setCorrectCardDelays] = useState<Map<string, number>>(new Map()); // Track delay count for correct cards
+  const [roundCards, setRoundCards] = useState<FlashcardWithMastery[]>([]); // Cards in current round only
+  const [roundCardsAnswered, setRoundCardsAnswered] = useState<Set<string>>(new Set()); // CardIds we've already shown this round
   
   // Answer state
   const [userAnswer, setUserAnswer] = useState('');
@@ -64,7 +65,9 @@ export default function LearnMode() {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [sessionComplete, setSessionComplete] = useState(false);
+  const [showRoundSummary, setShowRoundSummary] = useState(false); // After each round → summary page
+  const [sessionComplete, setSessionComplete] = useState(false); // All cards mastered (optional)
+  const [roundStartMastery, setRoundStartMastery] = useState<{ [cardId: string]: MasteryStatus }>({}); // Status at round start for session breakdown
 
   useEffect(() => {
     async function loadStudySet() {
@@ -126,21 +129,49 @@ export default function LearnMode() {
     }
   }, [params.id, router]);
 
-  // Initialize mastery for a card
+  // Initialize mastery for a card (single state: new | learning | mastered)
   const initializeMastery = (cardId: string): FlashcardMastery => ({
-    mastery_level: 0,
-    times_known: 0,
-    times_unknown: 0,
-    last_reviewed_at: null,
-    is_mastered: false,
+    status: 'new',
+    correctStreak: 0,
+    lastReviewedAt: null,
   });
 
-  // Load mastery data from localStorage
+  // Migrate old format to new format (status, correctStreak, lastReviewedAt)
+  const normalizeMastery = (raw: unknown): FlashcardMastery => {
+    if (raw && typeof raw === 'object') {
+      const o = raw as Record<string, unknown>;
+      if (typeof o.status === 'string' && (o.status === 'new' || o.status === 'learning' || o.status === 'mastered') &&
+          typeof o.correctStreak === 'number' && (o.lastReviewedAt === null || typeof o.lastReviewedAt === 'string')) {
+        return {
+          status: o.status as MasteryStatus,
+          correctStreak: o.correctStreak,
+          lastReviewedAt: o.lastReviewedAt as string | null,
+        };
+      }
+      // Old format: mastery_level, is_mastered, last_reviewed_at
+      const level = typeof o.mastery_level === 'number' ? o.mastery_level : 0;
+      const isMastered = o.is_mastered === true;
+      const lastReviewedAt = (o.last_reviewed_at ?? o.lastReviewedAt) as string | null;
+      return {
+        status: isMastered ? 'mastered' : (level > 0 ? 'learning' : 'new'),
+        correctStreak: isMastered ? MASTERY_THRESHOLD : Math.min(level, MASTERY_THRESHOLD - 1),
+        lastReviewedAt: lastReviewedAt ?? null,
+      };
+    }
+    return initializeMastery('');
+  };
+
+  // Load mastery data from localStorage (new format only after save)
   const loadMasteryData = (studySetId: string): { [cardId: string]: FlashcardMastery } => {
     try {
       const saved = localStorage.getItem(`flashcard-mastery-${studySetId}`);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved) as { [cardId: string]: unknown };
+        const result: { [cardId: string]: FlashcardMastery } = {};
+        for (const [id, val] of Object.entries(parsed)) {
+          result[id] = normalizeMastery(val);
+        }
+        return result;
       }
     } catch (error) {
       console.error('Error loading mastery data:', error);
@@ -174,35 +205,28 @@ export default function LearnMode() {
       };
     });
     setCardsWithMastery(cardsWithMastery);
-    
-    // Start session with non-mastered cards, sorted by lowest mastery level
-    const nonMastered = cardsWithMastery
-      .filter(card => !card.mastery?.is_mastered)
-      .sort((a, b) => {
-        const aLevel = a.mastery?.mastery_level || 0;
-        const bLevel = b.mastery?.mastery_level || 0;
-        if (aLevel !== bLevel) {
-          return aLevel - bLevel;
-        }
-        const aLastReviewed = a.mastery?.last_reviewed_at || '';
-        const bLastReviewed = b.mastery?.last_reviewed_at || '';
-        if (aLastReviewed && bLastReviewed) {
-          return new Date(aLastReviewed).getTime() - new Date(bLastReviewed).getTime();
-        }
-        if (aLastReviewed) return 1;
-        if (bLastReviewed) return -1;
-        return 0;
-      });
-    
-    setSessionCards(nonMastered);
     setLoading(false);
-    
-    // Don't generate questions yet - wait for user to select question type preference
-    if (nonMastered.length === 0) {
-      // All cards already mastered
+    if (cardsWithMastery.length === 0) return;
+    const nonMasteredCount = cardsWithMastery.filter(c => c.mastery?.status !== 'mastered').length;
+    if (nonMasteredCount === 0) {
       setSessionComplete(true);
       setShowSetup(false);
     }
+  };
+
+  // Build next round: mix New + Learning first, show Mastered rarely (Quizlet-style)
+  const buildRound = (): FlashcardWithMastery[] => {
+    const newAndLearning = cardsWithMastery.filter(c => c.mastery?.status === 'new' || c.mastery?.status === 'learning');
+    const mastered = cardsWithMastery.filter(c => c.mastery?.status === 'mastered');
+    const pool = [...newAndLearning];
+    if (pool.length < ROUND_SIZE && mastered.length > 0) {
+      const need = Math.min(ROUND_SIZE - pool.length, Math.max(1, Math.floor(mastered.length * 0.2)));
+      const shuffled = [...mastered].sort(() => Math.random() - 0.5);
+      pool.push(...shuffled.slice(0, need));
+    }
+    const size = Math.min(ROUND_SIZE, pool.length);
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, size);
   };
 
   // Generate multiple choice options
@@ -230,62 +254,27 @@ export default function LearnMode() {
     return options.sort(() => Math.random() - 0.5);
   };
 
-  // Generate next question
-  const generateNextQuestion = (availableCards: FlashcardWithMastery[]) => {
-    // Prioritize incorrect cards (they reappear immediately)
-    if (incorrectCards.length > 0) {
-      const nextCard = incorrectCards[0];
-      setIncorrectCards(prev => prev.slice(1));
-      createQuestion(nextCard, cardsWithMastery);
+  // Get next card in round (optional answered set to use instead of state, for same-tick updates)
+  const getNextInRound = (answeredOverride?: Set<string>): FlashcardWithMastery | null => {
+    const answered = answeredOverride ?? roundCardsAnswered;
+    const remaining = roundCards.filter(c => !answered.has(c.cardId));
+    if (remaining.length === 0) return null;
+    return remaining[Math.floor(Math.random() * remaining.length)];
+  };
+
+  // Generate next question (round-based). Pass updated answered set when calling right after marking one answered.
+  const generateNextQuestion = (answeredAfterThis?: Set<string>) => {
+    const nextCard = getNextInRound(answeredAfterThis);
+    if (nextCard) {
+      createQuestion(nextCard);
       return;
     }
-
-    // Then check for available cards (non-mastered)
-    if (availableCards.length > 0) {
-      // Sort by mastery level (lowest first)
-      const sorted = [...availableCards].sort((a, b) => {
-        const aLevel = a.mastery?.mastery_level || 0;
-        const bLevel = b.mastery?.mastery_level || 0;
-        return aLevel - bLevel;
-      });
-      
-      // Pick from the lowest mastery cards (first 30% of sorted list)
-      const lowMasteryCount = Math.max(1, Math.floor(sorted.length * 0.3));
-      const lowMasteryCards = sorted.slice(0, lowMasteryCount);
-      const randomIndex = Math.floor(Math.random() * lowMasteryCards.length);
-      const selectedCard = lowMasteryCards[randomIndex];
-      createQuestion(selectedCard, cardsWithMastery);
-      return;
-    }
-
-    // Check if correct cards can be reintroduced (after delay)
-    // Reintroduce correct cards that have been delayed enough (2+ questions since they were correct)
-    if (correctCards.length > 0) {
-      // Find a card that has been delayed enough
-      const readyCardIndex = correctCards.findIndex(card => {
-        const delay = correctCardDelays.get(card.cardId) || 0;
-        return delay >= 2; // Require at least 2 questions before reintroducing
-      });
-      
-      if (readyCardIndex !== -1) {
-        const nextCard = correctCards[readyCardIndex];
-        setCorrectCards(prev => prev.filter((_, i) => i !== readyCardIndex));
-        setCorrectCardDelays(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(nextCard.cardId);
-          return newMap;
-        });
-        createQuestion(nextCard, cardsWithMastery);
-        return;
-      }
-    }
-
-    // Session complete - all cards mastered or no more cards to review
-    setSessionComplete(true);
+    setShowRoundSummary(true);
+    setCurrentQuestion(null);
   };
 
   // Create a question from a card
-  const createQuestion = (card: FlashcardWithMastery, allCards: FlashcardWithMastery[]) => {
+  const createQuestion = (card: FlashcardWithMastery) => {
     // Choose question type based on user preference
     let questionType: QuestionType;
     if (questionTypePreference === 'both') {
@@ -304,7 +293,7 @@ export default function LearnMode() {
 
     let options: string[] | undefined;
     if (questionType === 'multiple-choice') {
-      options = generateMultipleChoiceOptions(correctAnswer, allCards);
+      options = generateMultipleChoiceOptions(correctAnswer, cardsWithMastery);
     }
 
     setCurrentQuestion({
@@ -320,16 +309,14 @@ export default function LearnMode() {
     setShowFeedback(false);
   };
 
-  // Handle answer submission
+  // Handle answer submission (Know = correct)
   const handleSubmitAnswer = () => {
     if (!currentQuestion) return;
 
     let correct = false;
-    
     if (currentQuestion.type === 'multiple-choice') {
       correct = selectedOption === currentQuestion.correctAnswer;
     } else {
-      // Typed answer - case-insensitive, trimmed comparison
       const userAnswerTrimmed = userAnswer.trim().toLowerCase();
       const correctAnswerTrimmed = currentQuestion.correctAnswer.trim().toLowerCase();
       correct = userAnswerTrimmed === correctAnswerTrimmed;
@@ -338,113 +325,53 @@ export default function LearnMode() {
     setIsCorrect(correct);
     setShowFeedback(true);
     setTotalQuestions(prev => prev + 1);
-    
-    if (correct) {
-      setCorrectAnswers(prev => prev + 1);
-    }
-
-    // Update mastery
+    if (correct) setCorrectAnswers(prev => prev + 1);
     updateMastery(currentQuestion.card, correct);
   };
 
-  // Update mastery after answer
+  // Don't know = treat as incorrect, show correct answer, update mastery (→ Learning, streak 0)
+  const handleDontKnow = () => {
+    if (!currentQuestion || showFeedback) return;
+    setIsCorrect(false);
+    setShowFeedback(true);
+    setTotalQuestions(prev => prev + 1);
+    updateMastery(currentQuestion.card, false);
+  };
+
+  // Update mastery after answer (strict Quizlet-style: one state only)
   const updateMastery = (card: FlashcardWithMastery, isCorrect: boolean) => {
     const studySetId = params.id as string;
     const cardId = card.cardId;
-    
-    // Use current state from cardsWithMastery, not localStorage (to get latest values)
+
     setCardsWithMastery(prev => {
       const currentCard = prev.find(c => c.cardId === cardId);
-      const currentMastery = currentCard?.mastery || initializeMastery(cardId);
-      
-      // Create updated mastery object
-      const updatedMastery: FlashcardMastery = { ...currentMastery };
-      
+      const current = currentCard?.mastery || initializeMastery(cardId);
+      const updatedMastery: FlashcardMastery = { ...current, lastReviewedAt: new Date().toISOString() };
+
       if (isCorrect) {
-        // Correct answer: mastery_level +1
-        updatedMastery.mastery_level = Math.min(updatedMastery.mastery_level + 1, 10); // Cap at 10
-        updatedMastery.times_known += 1;
-        
-        // Check if mastered (mastery_level >= 3)
-        if (updatedMastery.mastery_level >= 3) {
-          updatedMastery.is_mastered = true;
-        }
-        
-        // Add to correct cards (will be delayed before reappearing)
-        // Only add if not already mastered (mastered cards don't need to reappear)
-        if (updatedMastery.mastery_level < 3) {
-          setCorrectCards(prevCards => [...prevCards, card]);
-          setCorrectCardDelays(prevDelays => {
-            const newMap = new Map(prevDelays);
-            newMap.set(card.cardId, 0);
-            return newMap;
-          });
-        }
+        // Know: increase streak; master only after 2–3 correct in separate rounds
+        updatedMastery.correctStreak = (current.correctStreak || 0) + 1;
+        if (current.status === 'new') updatedMastery.status = 'learning';
+        if (updatedMastery.correctStreak >= MASTERY_THRESHOLD) updatedMastery.status = 'mastered';
       } else {
-        // Incorrect answer: mastery_level -1 (minimum 0)
-        updatedMastery.mastery_level = Math.max(updatedMastery.mastery_level - 1, 0);
-        updatedMastery.times_unknown += 1;
-        updatedMastery.is_mastered = false;
-        
-        // Add to incorrect cards (will reappear soon)
-        setIncorrectCards(prevCards => [...prevCards, card]);
+        // Don't know: → Learning, reset streak (including if was Mastered)
+        updatedMastery.status = 'learning';
+        updatedMastery.correctStreak = 0;
       }
-      
-      updatedMastery.last_reviewed_at = new Date().toISOString();
-      
-      // Save to localStorage
+
       const masteryData = loadMasteryData(studySetId);
       masteryData[cardId] = updatedMastery;
       saveMasteryData(studySetId, masteryData);
-      
-      // Update state and return new array to trigger re-render
-      const updated = prev.map(c => 
-        c.cardId === cardId ? { ...c, mastery: updatedMastery } : c
-      );
-      
-      // Remove from session cards if mastered
-      if (updatedMastery.is_mastered) {
-        setSessionCards(prevSession => prevSession.filter(c => c.cardId !== cardId));
-      }
-      
-      return updated;
+      return prev.map(c => (c.cardId === cardId ? { ...c, mastery: updatedMastery } : c));
     });
   };
 
-  // Move to next question after feedback
+  // Move to next question after feedback (mark card answered this round, then next or summary)
   const handleNext = () => {
     if (!currentQuestion) return;
-    
-    // Update delay counters for correct cards
-    if (isCorrect) {
-      setCorrectCardDelays(prev => {
-        const newMap = new Map(prev);
-        // Increment delay for all correct cards
-        prev.forEach((delay, cardId) => {
-          newMap.set(cardId, delay + 1);
-        });
-        return newMap;
-      });
-    }
-    
-    // Remove current card from session cards if mastered
-    const updatedMastery = cardsWithMastery.find(c => c.cardId === currentQuestion.card.cardId)?.mastery;
-    if (updatedMastery?.is_mastered) {
-      setSessionCards(prev => prev.filter(c => c.cardId !== currentQuestion.card.cardId));
-      // Also remove from correct cards queue if mastered
-      setCorrectCards(prev => prev.filter(c => c.cardId !== currentQuestion.card.cardId));
-      setCorrectCardDelays(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(currentQuestion.card.cardId);
-        return newMap;
-      });
-    }
-    
-    // Generate next question immediately
-    const remainingCards = sessionCards.filter(c => 
-      c.cardId !== currentQuestion.card.cardId || !updatedMastery?.is_mastered
-    );
-    generateNextQuestion(remainingCards);
+    const nextAnswered = new Set(roundCardsAnswered).add(currentQuestion.card.cardId);
+    setRoundCardsAnswered(nextAnswered);
+    generateNextQuestion(nextAnswered);
   };
 
   // Format time spent
@@ -464,17 +391,23 @@ export default function LearnMode() {
     }
   };
 
-  // Handle starting the session after setup
+  // Handle starting the session after setup (build first round, snapshot mastery for summary)
   const handleStartSession = () => {
     setShowSetup(false);
     setSessionStartTime(new Date());
-    
-    // Generate first question
-    if (sessionCards.length > 0) {
-      generateNextQuestion(sessionCards);
-    } else {
+    const round = buildRound();
+    if (round.length === 0) {
       setSessionComplete(true);
+      return;
     }
+    setRoundCards(round);
+    setRoundCardsAnswered(new Set());
+    const startSnapshot: { [cardId: string]: MasteryStatus } = {};
+    round.forEach(c => { startSnapshot[c.cardId] = (c.mastery?.status ?? 'new') as MasteryStatus; });
+    setRoundStartMastery(startSnapshot);
+    setShowRoundSummary(false);
+    const first = round[Math.floor(Math.random() * round.length)];
+    createQuestion(first);
   };
 
   if (loading) {
@@ -490,9 +423,9 @@ export default function LearnMode() {
 
   // Show setup screen
   if (showSetup) {
-    const masteredCount = cardsWithMastery.filter(c => c.mastery?.is_mastered).length;
+    const masteredCount = cardsWithMastery.filter(c => c.mastery?.status === 'mastered').length;
     const totalCount = cardsWithMastery.length;
-    const availableCount = sessionCards.length;
+    const availableCount = cardsWithMastery.filter(c => c.mastery?.status !== 'mastered').length;
     
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -615,10 +548,137 @@ export default function LearnMode() {
     );
   }
 
+  // Progress Summary (after each round) — Quizlet-style
+  const handleContinueLearning = () => {
+    setShowRoundSummary(false);
+    const round = buildRound();
+    if (round.length === 0) {
+      setSessionComplete(true);
+      return;
+    }
+    setRoundCards(round);
+    setRoundCardsAnswered(new Set());
+    const startSnapshot: { [cardId: string]: MasteryStatus } = {};
+    round.forEach(c => { startSnapshot[c.cardId] = (c.mastery?.status ?? 'new') as MasteryStatus; });
+    setRoundStartMastery(startSnapshot);
+    const first = round[Math.floor(Math.random() * round.length)];
+    createQuestion(first);
+  };
+
+  const handleReviewLearning = () => {
+    setShowRoundSummary(false);
+    const learning = cardsWithMastery.filter(c => c.mastery?.status === 'learning');
+    if (learning.length === 0) {
+      handleContinueLearning();
+      return;
+    }
+    const round = learning.length <= ROUND_SIZE ? learning : [...learning].sort(() => Math.random() - 0.5).slice(0, ROUND_SIZE);
+    setRoundCards(round);
+    setRoundCardsAnswered(new Set());
+    const startSnapshot: { [cardId: string]: MasteryStatus } = {};
+    round.forEach(c => { startSnapshot[c.cardId] = 'learning'; });
+    setRoundStartMastery(startSnapshot);
+    const first = round[Math.floor(Math.random() * round.length)];
+    createQuestion(first);
+  };
+
+  if (showRoundSummary) {
+    const totalCount = cardsWithMastery.length;
+    const masteredCount = cardsWithMastery.filter(c => c.mastery?.status === 'mastered').length;
+    const progressPercent = totalCount > 0 ? (masteredCount / totalCount) * 100 : 0;
+    const newLearned = roundCards.filter(c => roundStartMastery[c.cardId] === 'new').length;
+    const stillLearning = roundCards.filter(c => cardsWithMastery.find(x => x.cardId === c.cardId)?.mastery?.status === 'learning').length;
+    const masteredThisSession = roundCards.filter(c => cardsWithMastery.find(x => x.cardId === c.cardId)?.mastery?.status === 'mastered' && roundStartMastery[c.cardId] !== 'mastered').length;
+
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4">
+          <div className="max-w-4xl mx-auto flex items-center">
+            <Link href={`/my-study-sets/${params.id}`} className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Back
+            </Link>
+          </div>
+        </header>
+        <main className="max-w-3xl mx-auto px-8 py-8">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 shadow-xl">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Progress Summary</h1>
+
+            {/* Overall Progress */}
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Overall Progress</h2>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">{masteredCount} of {totalCount} terms mastered</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{Math.round(progressPercent)}%</span>
+              </div>
+              <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+              </div>
+            </div>
+
+            {/* Session Breakdown */}
+            <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">{newLearned}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">New cards learned</div>
+              </div>
+              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{stillLearning}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Still learning</div>
+              </div>
+              <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <div className="text-2xl font-bold text-green-700 dark:text-green-400">{masteredThisSession}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Mastered this session</div>
+              </div>
+            </div>
+
+            {/* Term Review List */}
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Term Review</h2>
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 divide-y divide-gray-200 dark:divide-gray-600">
+                {cardsWithMastery.map((card) => {
+                  const status = card.mastery?.status ?? 'new';
+                  const badge = status === 'mastered' ? '🟢 Mastered' : status === 'learning' ? '🟡 Learning' : '🔵 New';
+                  const badgeClass = status === 'mastered' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : status === 'learning' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+                  return (
+                    <div key={card.cardId} className="p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-gray-900 dark:text-gray-100">{card.front}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{card.back}</div>
+                        </div>
+                        <span className={`shrink-0 px-2 py-1 rounded text-xs font-medium ${badgeClass}`}>{badge}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button onClick={handleContinueLearning} className="flex-1 bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                Continue learning
+              </button>
+              <button onClick={handleReviewLearning} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                Review Learning cards
+              </button>
+              <Link href={`/my-study-sets/${params.id}`} className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium transition-colors text-center">
+                Exit to dashboard
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (sessionComplete) {
-    const accuracy = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
-    const masteredCount = cardsWithMastery.filter(c => c.mastery?.is_mastered).length;
-    
+    const masteredCount = cardsWithMastery.filter(c => c.mastery?.status === 'mastered').length;
+    const totalCount = cardsWithMastery.length;
+    const progressPercent = totalCount > 0 ? (masteredCount / totalCount) * 100 : 0;
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
         <div className="max-w-2xl mx-auto px-8 py-12">
@@ -629,65 +689,21 @@ export default function LearnMode() {
                   <path d="M20 6L9 17L4 12" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Session Complete!</h1>
-              <p className="text-gray-600 dark:text-gray-400">You've mastered all flashcards in this study set.</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">All set!</h1>
+              <p className="text-gray-600 dark:text-gray-400">You&apos;ve mastered all {totalCount} terms in this set.</p>
             </div>
-
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{masteredCount}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Cards Mastered</div>
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                <span>{masteredCount} / {totalCount} mastered</span>
+                <span>{Math.round(progressPercent)}%</span>
               </div>
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{accuracy}%</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Accuracy</div>
-              </div>
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{formatTimeSpent()}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Time Spent</div>
+              <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full" style={{ width: `${progressPercent}%` }} />
               </div>
             </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => {
-                  // Reset session state
-                  setSessionComplete(false);
-                  setTotalQuestions(0);
-                  setCorrectAnswers(0);
-                  setIncorrectCards([]);
-                  setCorrectCards([]);
-                  setCorrectCardDelays(new Map());
-                  setSessionStartTime(new Date());
-                  
-                  // Reload cards (excluding mastered ones)
-                  const nonMastered = cardsWithMastery
-                    .filter(card => !card.mastery?.is_mastered)
-                    .sort((a, b) => {
-                      const aLevel = a.mastery?.mastery_level || 0;
-                      const bLevel = b.mastery?.mastery_level || 0;
-                      return aLevel - bLevel;
-                    });
-                  
-                  setSessionCards(nonMastered);
-                  
-                  if (nonMastered.length > 0) {
-                    generateNextQuestion(nonMastered);
-                  } else {
-                    setSessionComplete(true);
-                  }
-                }}
-                className="flex-1 bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-3 rounded-lg font-medium transition-colors"
-              >
-                Restart Learn Mode
-              </button>
-              <Link
-                href={`/my-study-sets/${params.id}`}
-                className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium transition-colors text-center"
-              >
-                Back to Study Set
-              </Link>
-            </div>
+            <Link href={`/my-study-sets/${params.id}`} className="block w-full text-center bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-3 rounded-lg font-medium transition-colors">
+              Back to Study Set
+            </Link>
           </div>
         </div>
       </div>
@@ -702,8 +718,8 @@ export default function LearnMode() {
     );
   }
 
-  // Calculate progress - this will update reactively as cardsWithMastery changes
-  const masteredCount = cardsWithMastery.filter(c => c.mastery?.is_mastered).length;
+  // Active round: progress bar = mastered / total only
+  const masteredCount = cardsWithMastery.filter(c => c.mastery?.status === 'mastered').length;
   const totalCount = cardsWithMastery.length;
   const progressPercent = totalCount > 0 
     ? (masteredCount / totalCount) * 100
@@ -840,23 +856,31 @@ export default function LearnMode() {
             </div>
           )}
 
-          {/* Action Button */}
-          <div className="flex justify-end">
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             {!showFeedback ? (
-              <button
-                onClick={handleSubmitAnswer}
-                disabled={
-                  (currentQuestion.type === 'multiple-choice' && !selectedOption) ||
-                  (currentQuestion.type === 'typed-answer' && !userAnswer.trim())
-                }
-                className="bg-[#0055FF] hover:bg-[#0044CC] disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-medium transition-colors"
-              >
-                Submit
-              </button>
+              <>
+                <button
+                  onClick={handleDontKnow}
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-medium"
+                >
+                  Don&apos;t know
+                </button>
+                <button
+                  onClick={handleSubmitAnswer}
+                  disabled={
+                    (currentQuestion.type === 'multiple-choice' && !selectedOption) ||
+                    (currentQuestion.type === 'typed-answer' && !userAnswer.trim())
+                  }
+                  className="bg-[#0055FF] hover:bg-[#0044CC] disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-medium transition-colors"
+                >
+                  Submit
+                </button>
+              </>
             ) : (
               <button
                 onClick={handleNext}
-                className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-8 py-3 rounded-lg font-medium transition-colors"
+                className="ml-auto bg-[#0055FF] hover:bg-[#0044CC] text-white px-8 py-3 rounded-lg font-medium transition-colors"
               >
                 Continue
               </button>
