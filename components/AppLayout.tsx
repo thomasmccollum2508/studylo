@@ -114,6 +114,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <circle cx="10" cy="13" r="0.5" fill="currentColor" />
                 </svg>
               )}
+              {navLink(
+                '/ai-chat',
+                'AI Chat',
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17 9.5C17 13.09 13.64 16 9.5 16C8.22 16 7.02 15.63 6 15L2 16L3.5 12.5C2.37 11.48 1.5 10.08 1.5 8.5C1.5 4.91 4.86 2 9 2C13.14 2 17 4.91 17 9.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
             </nav>
             <div className="p-3 border-t border-gray-200 dark:border-gray-700">
               <Link
