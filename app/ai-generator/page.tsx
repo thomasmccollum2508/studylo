@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTheme } from '@/app/providers/ThemeProvider';
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { stripMarkdownCodeFences } from '@/lib/utils/text';
 
 export default function AIGenerator() {
   const { theme } = useTheme();
@@ -138,7 +139,7 @@ export default function AIGenerator() {
 
       // Store summary in sessionStorage and navigate to results page
       // Using sessionStorage only to avoid HTTP 431 (Request Header Fields Too Large) errors
-      const summaryText = data.summary;
+      const summaryText = stripMarkdownCodeFences(data.summary ?? '');
       sessionStorage.setItem('ai-summary', summaryText);
       
       // Navigate to results page without summary in URL to avoid header size limits

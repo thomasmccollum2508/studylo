@@ -75,6 +75,14 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 - Format the output in a clear, organized manner with proper HTML sections`;
 }
 
+/** Strip markdown code fences (e.g. ```html, ```) that the model sometimes returns. */
+function stripMarkdownCodeFences(text: string): string {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/\s*```[a-zA-Z0-9]*\s*/g, '')
+    .trim();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -358,10 +366,10 @@ Turn the content in this image into full, exam-ready notes. Extract ALL text and
           ]);
           
           const analyzeResponse = await analyzeResult.response;
-          const summary = analyzeResponse.text();
-          
-          return NextResponse.json({ 
-            success: true, 
+          const summary = stripMarkdownCodeFences(analyzeResponse.text());
+
+            return NextResponse.json({
+            success: true,
             summary,
             source: 'image'
           });
@@ -379,7 +387,7 @@ ${htmlFormattingInstructions()}`;
 
         const summaryResult = await model.generateContent(prompt);
         const summaryResponse = await summaryResult.response;
-        const summary = summaryResponse.text();
+        const summary = stripMarkdownCodeFences(summaryResponse.text());
         
         return NextResponse.json({ 
           success: true, 
@@ -440,7 +448,7 @@ ${htmlFormattingInstructions()}`;
           try {
             const result = await model.generateContent(prompt);
             const response = await result.response;
-            const summary = response.text();
+            const summary = stripMarkdownCodeFences(response.text());
             console.log('Successfully received response from Gemini');
             
             return NextResponse.json({ 

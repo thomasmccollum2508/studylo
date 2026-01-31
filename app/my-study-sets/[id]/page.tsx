@@ -6,6 +6,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { StudySet } from '@/lib/types/database';
 import { useTheme } from '@/app/providers/ThemeProvider';
+import { stripMarkdownCodeFences } from '@/lib/utils/text';
+
+interface FlashcardItem {
+  front: string;
+  back: string;
+  image?: string;
+}
 
 export default function StudySetDetail() {
   const params = useParams();
@@ -13,28 +20,29 @@ export default function StudySetDetail() {
   const { theme } = useTheme();
   const [studySet, setStudySet] = useState<StudySet | null>(null);
   const [content, setContent] = useState<string>('');
+  const [flashcards, setFlashcards] = useState<FlashcardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'outline' | 'quick-reference'>('outline');
   const [userName, setUserName] = useState<string>('');
-  const [showStudyMenu, setShowStudyMenu] = useState(false);
+  const [showStudyDropdown, setShowStudyDropdown] = useState(false);
 
   useEffect(() => {
     // Close dropdown when clicking outside
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (showStudyMenu && !target.closest('.study-menu-container')) {
-        setShowStudyMenu(false);
+      if (showStudyDropdown && !target.closest('.study-menu-container')) {
+        setShowStudyDropdown(false);
       }
     };
 
-    if (showStudyMenu) {
+    if (showStudyDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showStudyMenu]);
+  }, [showStudyDropdown]);
 
   useEffect(() => {
     async function loadStudySet() {
@@ -73,10 +81,23 @@ export default function StudySetDetail() {
 
         setStudySet(setData as StudySet);
 
-        // Get content from localStorage
+        // Get content from localStorage (AI-generated outline/summary)
         const savedContent = localStorage.getItem(`note-content-${studySetId}`);
         if (savedContent) {
-          setContent(savedContent);
+          setContent(stripMarkdownCodeFences(savedContent));
+        }
+
+        // Get flashcards from localStorage (for manual sets or AI-generated cards)
+        const savedCards = localStorage.getItem(`flashcards-${studySetId}`);
+        if (savedCards) {
+          try {
+            const parsed = JSON.parse(savedCards);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setFlashcards(parsed);
+            }
+          } catch {
+            // ignore invalid JSON
+          }
         }
       } catch (error) {
         console.error('Error loading study set:', error);
@@ -233,31 +254,6 @@ export default function StudySetDetail() {
             </svg>
             Back to Study Sets
           </Link>
-          
-          <div className="flex items-center gap-3">
-            <button className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19 21H5C4.44772 21 4 20.5523 4 20V4C4 3.44772 4.44772 3 5 3H16L20 7V20C20 20.5523 19.5523 21 19 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M12 11V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M9 14H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </button>
-            <button className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M18 8C18 6.34315 16.6569 5 15 5C13.3431 5 12 6.34315 12 8C12 9.65685 13.3431 11 15 11C16.6569 11 18 9.65685 18 8Z" stroke="currentColor" strokeWidth="2"/>
-                <path d="M6 16C6 14.3431 7.34315 13 9 13C10.6569 13 12 14.3431 12 16C12 17.6569 10.6569 19 9 19C7.34315 19 6 17.6569 6 16Z" stroke="currentColor" strokeWidth="2"/>
-                <path d="M18 16C18 14.3431 16.6569 13 15 13C13.3431 13 12 14.3431 12 16C12 17.6569 13.3431 19 15 19C16.6569 19 18 17.6569 18 16Z" stroke="currentColor" strokeWidth="2"/>
-                <path d="M6 8C6 6.34315 7.34315 5 9 5C10.6569 5 12 6.34315 12 8C12 9.65685 10.6569 11 9 11C7.34315 11 6 9.65685 6 8Z" stroke="currentColor" strokeWidth="2"/>
-              </svg>
-            </button>
-            <button className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="1" fill="currentColor"/>
-                <circle cx="12" cy="5" r="1" fill="currentColor"/>
-                <circle cx="12" cy="19" r="1" fill="currentColor"/>
-              </svg>
-            </button>
-          </div>
         </div>
       </header>
 
@@ -304,26 +300,97 @@ export default function StudySetDetail() {
           </div>
         </div>
 
-        {/* Study Options Section */}
-        {content && (
+        {/* Study Options Section - show when we have outline content or flashcards (manual set) */}
+        {(content || flashcards.length > 0) && (
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Study this material</h2>
-            <div className="flex gap-4">
-              <button className="bg-white dark:bg-gray-800 border-2 border-blue-500 text-blue-600 dark:text-blue-400 px-6 py-3 rounded-lg font-medium transition-all hover:shadow-md flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Study dropdown - blue button with document icon + chevron */}
+              <div className="relative study-menu-container">
+                <button
+                  type="button"
+                  onClick={() => setShowStudyDropdown(!showStudyDropdown)}
+                  className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-3 rounded-lg font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M8 7H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M8 12H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M8 17H12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                  Study
+                  <svg
+                    className={`transition-transform ${showStudyDropdown ? 'rotate-180' : ''}`}
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                {showStudyDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowStudyDropdown(false)} aria-hidden="true" />
+                    <div className="absolute left-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 min-w-[200px] z-20">
+                      <Link
+                        href={`/my-study-sets/${params.id}/flashcards`}
+                        onClick={() => setShowStudyDropdown(false)}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                      >
+                        <div className="w-5 h-5 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center">
+                          <div className="w-3 h-3 bg-blue-500 rounded" />
+                        </div>
+                        Flashcards
+                      </Link>
+                      <Link
+                        href={`/my-study-sets/${params.id}/learn`}
+                        onClick={() => setShowStudyDropdown(false)}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Learn
+                      </Link>
+                      <Link
+                        href={`/my-study-sets/${params.id}/practice`}
+                        onClick={() => setShowStudyDropdown(false)}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M12 8V12L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                        Practise test
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+              {/* Flashcards - outline style */}
+              <Link
+                href={`/my-study-sets/${params.id}/flashcards`}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2 focus:outline-none focus:ring-0"
+              >
                 <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center">
-                  <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                  <div className="w-4 h-4 bg-blue-500 rounded" />
                 </div>
                 Flashcards
-              </button>
-              <Link 
-                href={`/my-study-sets/${params.id}/practice`}
+              </Link>
+              {/* Practise questions - outline style */}
+              <Link
+                href={`/my-study-sets/${params.id}/learn`}
                 className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium transition-all hover:shadow-md flex items-center gap-2"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
                   <path d="M12 8V12L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-                Practice test
+                Practise questions
               </Link>
             </div>
           </div>
@@ -339,107 +406,50 @@ export default function StudySetDetail() {
             </div>
           )}
 
-          {content ? (
-            activeTab === 'outline' ? (
-              <div 
-                className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed [&_strong]:font-bold [&_strong]:text-gray-900 [&_strong]:dark:text-gray-100 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:text-gray-900 [&_h2]:dark:text-gray-100 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-gray-900 [&_h3]:dark:text-gray-100 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-4 [&_li]:mb-2"
-                dangerouslySetInnerHTML={{ __html: content }}
-              />
-            ) : (
-              <div 
-                className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed [&_strong]:font-bold [&_strong]:text-gray-900 [&_strong]:dark:text-gray-100 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-gray-900 [&_h2]:dark:text-gray-100 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-gray-900 [&_h3]:dark:text-gray-100 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-4 [&_li]:mb-2"
-                dangerouslySetInnerHTML={{ __html: generateQuickReference(content) }}
-              />
-            )
-          ) : (
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center border border-gray-200 dark:border-gray-700">
-              <p className="text-gray-600 dark:text-gray-400 mb-4">No content available for this study set.</p>
-              <Link 
-                href="/ai-generator" 
-                className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
-              >
-                Generate Content
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom Action Buttons */}
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-4 z-10">
-          {/* Study Button with Dropdown */}
-          <div className="relative study-menu-container">
-            <button 
-              onClick={() => setShowStudyMenu(!showStudyMenu)}
-              className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
-                <path d="M8 7H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M8 12H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M8 17H12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-              Study
-              <svg 
-                className={`transition-transform ${showStudyMenu ? 'rotate-180' : ''}`}
-                width="16" 
-                height="16" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            
-            {/* Dropdown Menu */}
-            {showStudyMenu && (
-              <>
-                {/* Backdrop to close menu on click outside */}
+          {(() => {
+            // AI-generated outline/summary: content has HTML structure (e.g. headings, lists)
+            const hasOutlineContent = content && /<(?:\w+)/.test(content);
+            if (hasOutlineContent) {
+              return activeTab === 'outline' ? (
                 <div 
-                  className="fixed inset-0 z-0"
-                  onClick={() => setShowStudyMenu(false)}
+                  className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed [&_strong]:font-bold [&_strong]:text-gray-900 [&_strong]:dark:text-gray-100 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:text-gray-900 [&_h2]:dark:text-gray-100 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-gray-900 [&_h3]:dark:text-gray-100 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-4 [&_li]:mb-2"
+                  dangerouslySetInnerHTML={{ __html: content }}
                 />
-                <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 min-w-[200px] z-20">
-                  <Link
-                    href={`/my-study-sets/${params.id}/flashcards`}
-                    onClick={() => setShowStudyMenu(false)}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M8 7H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      <path d="M8 12H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      <path d="M8 17H12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                    Flashcards
-                  </Link>
-                  <Link
-                    href={`/my-study-sets/${params.id}/learn`}
-                    onClick={() => setShowStudyMenu(false)}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Learn
-                  </Link>
-                  <Link
-                    href={`/my-study-sets/${params.id}/practice`}
-                    onClick={() => setShowStudyMenu(false)}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M12 8V12L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                    Practice test
-                  </Link>
+              ) : (
+                <div 
+                  className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed [&_strong]:font-bold [&_strong]:text-gray-900 [&_strong]:dark:text-gray-100 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-gray-900 [&_h2]:dark:text-gray-100 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-gray-900 [&_h3]:dark:text-gray-100 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-4 [&_li]:mb-2"
+                  dangerouslySetInnerHTML={{ __html: generateQuickReference(content) }}
+                />
+              );
+            }
+            // Manual set or flashcards-only: show terms and definitions where the summary would be
+            if (flashcards.length > 0) {
+              const proseClass = 'prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed [&_strong]:font-bold [&_strong]:text-gray-900 [&_strong]:dark:text-gray-100 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:text-gray-900 [&_h2]:dark:text-gray-100 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-gray-900 [&_h3]:dark:text-gray-100 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-4 [&_li]:mb-2';
+              return (
+                <div className={proseClass}>
+                  <ol className="list-decimal ml-6 mb-4 space-y-6">
+                    {flashcards.map((card, index) => (
+                      <li key={index} className="pl-2">
+                        <strong className="text-gray-900 dark:text-gray-100 font-bold">{card.front}</strong>
+                        <p className="mt-2 mb-0 text-gray-700 dark:text-gray-300">{card.back}</p>
+                      </li>
+                    ))}
+                  </ol>
                 </div>
-              </>
-            )}
-          </div>
+              );
+            }
+            return (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center border border-gray-200 dark:border-gray-700">
+                <p className="text-gray-600 dark:text-gray-400 mb-4">No content available for this study set.</p>
+                <Link 
+                  href="/ai-generator" 
+                  className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Generate Content
+                </Link>
+              </div>
+            );
+          })()}
         </div>
       </main>
     </div>

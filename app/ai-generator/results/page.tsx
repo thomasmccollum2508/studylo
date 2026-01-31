@@ -5,6 +5,7 @@ import { useTheme } from '@/app/providers/ThemeProvider';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { stripMarkdownCodeFences } from '@/lib/utils/text';
 
 export default function ResultsPage() {
   const { theme } = useTheme();
@@ -26,7 +27,7 @@ export default function ResultsPage() {
     // Get summary from sessionStorage only (URL params cause HTTP 431 for large content)
     const storedSummary = sessionStorage.getItem('ai-summary');
     if (storedSummary) {
-      setSummary(storedSummary);
+      setSummary(stripMarkdownCodeFences(storedSummary));
     } else {
       // If no summary found, redirect back to generator
       router.push('/ai-generator');

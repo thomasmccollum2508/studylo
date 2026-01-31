@@ -31,6 +31,7 @@ export default function MyStudySets() {
   const [subjects, setSubjects] = useState<SubjectWithCount[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showCreateStudySetChoice, setShowCreateStudySetChoice] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
@@ -347,12 +348,16 @@ export default function MyStudySets() {
                   </svg>
                   Create Subject
                 </button>
-                <Link href="/ai-generator" className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateStudySetChoice(true)}
+                  className="bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2"
+                >
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
                   Create Study Set
-                </Link>
+                </button>
               </div>
             </div>
             
@@ -369,9 +374,13 @@ export default function MyStudySets() {
                   >
                     Create Subject
                   </button>
-                  <Link href="/ai-generator" className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateStudySetChoice(true)}
+                    className="inline-block bg-[#0055FF] hover:bg-[#0044CC] text-white px-6 py-2.5 rounded-lg text-sm font-medium"
+                  >
                     Create Study Set
-                  </Link>
+                  </button>
                 </div>
               </div>
             ) : (
@@ -569,6 +578,65 @@ export default function MyStudySets() {
           </div>
         </main>
       </div>
+
+      {/* Create Study Set: Manual or AI choice */}
+      {showCreateStudySetChoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 border border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Create Study Set</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Choose how you want to create your study set.</p>
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateStudySetChoice(false);
+                  router.push('/ai-generator');
+                }}
+                className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-500 text-left font-medium text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center gap-3"
+              >
+                <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#0055FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="#0055FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <span className="block font-semibold">With AI</span>
+                  <span className="block text-sm text-gray-500 dark:text-gray-400">Paste notes or upload — we generate flashcards and content</span>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateStudySetChoice(false);
+                  router.push('/my-study-sets/create/manual');
+                }}
+                className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-500 text-left font-medium text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center gap-3"
+              >
+                <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M8 7H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M8 12H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M8 17H12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <span className="block font-semibold">Create manually</span>
+                  <span className="block text-sm text-gray-500 dark:text-gray-400">Type in your own terms and definitions</span>
+                </div>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreateStudySetChoice(false)}
+              className="mt-4 w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Create Subject Dialog */}
       {showCreateDialog && (

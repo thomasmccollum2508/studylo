@@ -807,11 +807,6 @@ export default function PracticeTest() {
                        reviewQuestion.type === 'matching' ? 'Matching' :
                        reviewQuestion.type === 'written' ? 'Written' : reviewQuestion.promptType}
                     </span>
-                    <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 6V18M8 9V15M16 11V13M4 10C4 10 6 10 8 10C10 10 10 12 10 14C10 16 8 18 8 18M20 10C20 10 18 10 16 10C14 10 14 12 14 14C14 16 16 18 16 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </button>
                   </div>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     {reviewQuestionIndex + 1} of {questions.length}
@@ -1027,11 +1022,6 @@ export default function PracticeTest() {
                    currentQuestion.type === 'matching' ? 'Matching' :
                    currentQuestion.type === 'written' ? 'Written' : currentQuestion.promptType}
                 </span>
-                <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 6V18M8 9V15M16 11V13M4 10C4 10 6 10 8 10C10 10 10 12 10 14C10 16 8 18 8 18M20 10C20 10 18 10 16 10C14 10 14 12 14 14C14 16 16 18 16 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
               </div>
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {currentQuestionIndex + 1} of {questions.length}
@@ -1164,11 +1154,6 @@ export default function PracticeTest() {
                 <span className="font-semibold text-gray-900 dark:text-gray-100 capitalize text-sm">
                   {nextQuestion.promptType}
                 </span>
-                <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 6V18M8 9V15M16 11V13M4 10C4 10 6 10 8 10C10 10 10 12 10 14C10 16 8 18 8 18M20 10C20 10 18 10 16 10C14 10 14 12 14 14C14 16 16 18 16 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
               </div>
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {currentQuestionIndex + 2} of {questions.length}
