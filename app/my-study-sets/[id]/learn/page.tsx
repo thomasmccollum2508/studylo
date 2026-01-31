@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { StudySet } from '@/lib/types/database';
+import AppLayout from '@/components/AppLayout';
 
 interface Flashcard {
   front: string;
@@ -309,17 +310,39 @@ export default function LearnMode() {
     setShowFeedback(false);
   };
 
-  // Handle answer submission (Know = correct)
-  const handleSubmitAnswer = () => {
+  // Handle answer submission (Know = correct). Typed answers use semantic evaluation.
+  const handleSubmitAnswer = async () => {
     if (!currentQuestion) return;
 
     let correct = false;
     if (currentQuestion.type === 'multiple-choice') {
       correct = selectedOption === currentQuestion.correctAnswer;
     } else {
-      const userAnswerTrimmed = userAnswer.trim().toLowerCase();
-      const correctAnswerTrimmed = currentQuestion.correctAnswer.trim().toLowerCase();
-      correct = userAnswerTrimmed === correctAnswerTrimmed;
+      const trimmed = userAnswer.trim();
+      if (!trimmed) {
+        correct = false;
+      } else {
+        const exactMatch = trimmed.toLowerCase() === currentQuestion.correctAnswer.trim().toLowerCase();
+        if (exactMatch) {
+          correct = true;
+        } else {
+          try {
+            const res = await fetch('/api/evaluate-answer', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                prompt: currentQuestion.card.front,
+                expectedConcept: currentQuestion.correctAnswer,
+                studentAnswer: trimmed,
+              }),
+            });
+            const data = await res.json();
+            if (data.success && data.result === 'correct') correct = true;
+          } catch {
+            correct = false;
+          }
+        }
+      }
     }
 
     setIsCorrect(correct);
@@ -726,10 +749,11 @@ export default function LearnMode() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <AppLayout>
+      <div className="flex-1 flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-auto">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 shrink-0">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href={`/my-study-sets/${params.id}`} className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -757,10 +781,11 @@ export default function LearnMode() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-8 py-12">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 shadow-xl">
+      <main className="max-w-6xl mx-auto px-8 py-12 flex-1 flex flex-col">
+        {/* Fixed-size rectangle: same dimensions for every question */}
+        <div className="w-full h-[min(72vh,680px)] min-h-[min(72vh,680px)] bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-10 border border-gray-200 dark:border-gray-700 shadow-xl flex flex-col">
           {/* Question */}
-          <div className="mb-8">
+          <div className="mb-8 flex-shrink-0">
             <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {currentQuestion.type === 'multiple-choice' ? 'Multiple Choice' : 'Type your answer'}
             </div>
@@ -857,7 +882,7 @@ export default function LearnMode() {
           )}
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 flex-shrink-0 pt-2">
             {!showFeedback ? (
               <>
                 <button
@@ -888,6 +913,7 @@ export default function LearnMode() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

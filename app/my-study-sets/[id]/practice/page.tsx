@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { StudySet } from '@/lib/types/database';
+import AppLayout from '@/components/AppLayout';
 
 interface Flashcard {
   front: string;
@@ -59,6 +60,8 @@ export default function PracticeTest() {
   const [correctCount, setCorrectCount] = useState(0);
   const [incorrectCount, setIncorrectCount] = useState(0);
   const [reviewQuestionIndex, setReviewQuestionIndex] = useState(0);
+  const [writtenResults, setWrittenResults] = useState<Record<string, boolean>>({});
+  const [gradingWritten, setGradingWritten] = useState(false);
 
   useEffect(() => {
     async function loadStudySet() {
@@ -287,11 +290,11 @@ export default function PracticeTest() {
       [questionId]: optionIndex,
     }));
     // Auto-advance to next question after a short delay
-    setTimeout(() => {
+    setTimeout(async () => {
       if (currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
-        calculateScore();
+        await calculateScore();
       }
     }, 500);
   };
@@ -302,11 +305,11 @@ export default function PracticeTest() {
       [questionId]: answer,
     }));
     // Auto-advance to next question after a short delay
-    setTimeout(() => {
+    setTimeout(async () => {
       if (currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
-        calculateScore();
+        await calculateScore();
       }
     }, 500);
   };
@@ -337,22 +340,62 @@ export default function PracticeTest() {
       [questionId]: -1, // -1 means "don't know"
     }));
     // Auto-advance to next question after a short delay
-    setTimeout(() => {
+    setTimeout(async () => {
       if (currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
-        calculateScore();
+        await calculateScore();
       }
     }, 500);
   };
 
-  const calculateScore = () => {
+  const evaluateWrittenAnswer = async (prompt: string, expectedConcept: string, studentAnswer: string): Promise<boolean> => {
+    const trimmed = studentAnswer.trim();
+    if (!trimmed) return false;
+    if (trimmed.toLowerCase() === expectedConcept.trim().toLowerCase()) return true;
+    try {
+      const res = await fetch('/api/evaluate-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          expectedConcept,
+          studentAnswer: trimmed,
+        }),
+      });
+      const data = await res.json();
+      return data.success && data.result === 'correct';
+    } catch {
+      return false;
+    }
+  };
+
+  const calculateScore = async () => {
     let correct = 0;
     let incorrect = 0;
-    
+    const newWrittenResults: Record<string, boolean> = {};
+
+    const writtenQuestions = questions.filter(q => q.type === 'written');
+    if (writtenQuestions.length > 0) {
+      setGradingWritten(true);
+      for (const q of writtenQuestions) {
+        const selected = selectedAnswers[q.id];
+        const userAnswer = typeof selected === 'string' ? selected : '';
+        const isCorrect = await evaluateWrittenAnswer(q.prompt, q.correctAnswer, userAnswer);
+        newWrittenResults[q.id] = isCorrect;
+        if (isCorrect) correct++; else incorrect++;
+      }
+      setWrittenResults(newWrittenResults);
+      setGradingWritten(false);
+    }
+
     questions.forEach(q => {
+      if (q.type === 'written') {
+        // Already counted above
+        return;
+      }
       const selected = selectedAnswers[q.id];
-      
+
       if (q.type === 'multiple-choice') {
         if (selected !== null && selected !== undefined && selected !== -1) {
           if (selected === q.correctIndex) {
@@ -391,27 +434,13 @@ export default function PracticeTest() {
         } else {
           incorrect++;
         }
-      } else if (q.type === 'written') {
-        if (selected && typeof selected === 'string' && selected.trim()) {
-          // For written questions, check if answer is close enough (case-insensitive, trimmed)
-          const userAnswer = selected.trim().toLowerCase();
-          const correctAnswer = q.correctAnswer.trim().toLowerCase();
-          // Simple exact match for now - could be enhanced with fuzzy matching
-          if (userAnswer === correctAnswer) {
-            correct++;
-          } else {
-            incorrect++;
-          }
-        } else {
-          incorrect++;
-        }
       }
     });
-    
+
     setCorrectCount(correct);
     setIncorrectCount(incorrect);
     setScore(correct);
-    
+
     // Calculate time taken
     if (testStartTime) {
       const elapsed = Date.now() - testStartTime;
@@ -423,15 +452,35 @@ export default function PracticeTest() {
         setTimeTaken(`${seconds} sec`);
       }
     }
-    
+
+    // Save quiz result to quizzes page (localStorage keyed by user)
+    if (studySet && questions.length > 0) {
+      const key = `quizzes-${studySet.user_id}`;
+      const existing = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+      const quizzes: { id: string; studySetId: string; title: string; questions: number; score: number; status: string; completedAt: string }[] = existing ? JSON.parse(existing) : [];
+      const percentage = Math.round((correct / questions.length) * 100);
+      quizzes.unshift({
+        id: crypto.randomUUID(),
+        studySetId: params.id as string,
+        title: studySet.title,
+        questions: questions.length,
+        score: percentage,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(key, JSON.stringify(quizzes));
+      }
+    }
+
     setShowResults(true);
   };
 
-  const goToNextQuestion = () => {
+  const goToNextQuestion = async () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
-      calculateScore();
+      await calculateScore();
     }
   };
 
@@ -443,18 +492,21 @@ export default function PracticeTest() {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-white dark:bg-gray-900 items-center justify-center">
-        <div className="text-center">
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
+          <div className="text-center">
           <p className="text-gray-600 dark:text-gray-400 mb-4">Loading...</p>
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   if (!studySet || flashcards.length === 0) {
     return (
-      <div className="flex h-screen bg-white dark:bg-gray-900 items-center justify-center">
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
         <div className="text-center max-w-md mx-auto px-4">
           <p className="text-gray-600 dark:text-gray-400 mb-4">No flashcards available for this study set.</p>
           <Link 
@@ -464,7 +516,8 @@ export default function PracticeTest() {
             Back to Study Set
           </Link>
         </div>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
@@ -486,7 +539,8 @@ export default function PracticeTest() {
   // Setup Modal
   if (showSetup) {
     return (
-      <div className="fixed inset-0 bg-gray-50 dark:bg-gray-900 flex items-center justify-center z-50 transition-colors duration-300">
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-8 w-full max-w-lg mx-4 border border-gray-200 dark:border-gray-700 relative">
           {/* Close Button */}
           <button
@@ -637,7 +691,8 @@ export default function PracticeTest() {
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
@@ -668,7 +723,10 @@ export default function PracticeTest() {
           isIncorrect = true;
         }
       } else if (reviewQuestion.type === 'written') {
-        if (selectedAnswer && typeof selectedAnswer === 'string') {
+        if (writtenResults[reviewQuestion.id] !== undefined) {
+          isCorrect = writtenResults[reviewQuestion.id];
+          isIncorrect = !isCorrect;
+        } else if (selectedAnswer && typeof selectedAnswer === 'string') {
           isCorrect = selectedAnswer.trim().toLowerCase() === reviewQuestion.correctAnswer.trim().toLowerCase();
           isIncorrect = !isCorrect;
         } else {
@@ -682,9 +740,10 @@ export default function PracticeTest() {
     }
 
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppLayout>
+        <div className="flex-1 flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 overflow-auto">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 lg:px-10 py-4">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 lg:px-10 py-4 shrink-0">
           <div className="max-w-6xl mx-auto text-center">
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {correctCount} / {questions.length}
@@ -694,7 +753,7 @@ export default function PracticeTest() {
         </header>
 
         {/* Main Content */}
-        <main className="max-w-6xl mx-auto px-6 py-8">
+        <main className="max-w-6xl mx-auto px-6 py-8 flex-1">
           {/* Celebration Section */}
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
@@ -748,6 +807,7 @@ export default function PracticeTest() {
                     setIncorrectCount(0);
                     setTimeTaken('');
                     setTestStartTime(null);
+                    setWrittenResults({});
                   }}
                   className="w-full flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group text-left"
                 >
@@ -945,15 +1005,30 @@ export default function PracticeTest() {
             </div>
           </div>
         </main>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
   // Test Interface
+  if (gradingWritten) {
+    return (
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 min-h-screen">
+          <div className="text-center">
+            <div className="w-10 h-10 border-4 border-[#0055FF] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-600 dark:text-gray-400">Grading written answers...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <AppLayout>
+      <div className="flex-1 flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 overflow-auto">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 lg:px-10 py-4 sticky top-0 z-10">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 lg:px-10 py-4 sticky top-0 z-10 shrink-0">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           {/* Left */}
           <div className="flex items-center gap-4">
@@ -1182,6 +1257,7 @@ export default function PracticeTest() {
           </button>
         </div>
       </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

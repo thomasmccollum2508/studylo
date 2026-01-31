@@ -1,73 +1,51 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '@/app/providers/ThemeProvider';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/AppLayout';
+
+interface SavedQuiz {
+  id: string;
+  studySetId: string;
+  title: string;
+  questions: number;
+  score: number;
+  status: string;
+  completedAt: string;
+}
 
 export default function Quizzes() {
   const { theme } = useTheme();
+  const router = useRouter();
+  const [quizzes, setQuizzes] = useState<SavedQuiz[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadQuizzes() {
+      const supabase = createClient();
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+      const key = `quizzes-${user.id}`;
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+      const list: SavedQuiz[] = raw ? JSON.parse(raw) : [];
+      setQuizzes(list);
+      setLoading(false);
+    }
+    loadQuizzes();
+  }, [router]);
   
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      {/* Left Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-colors duration-300">
-        <div className="p-6">
-          <Link href="/" className="flex items-center">
-            <img 
-              src={theme === 'dark' ? "/studylo%20logo%20dark.png" : "/studylo%20logo%202.png"}
-              alt="StudyLo Logo" 
-              className="h-10 w-auto transition-opacity duration-300"
-            />
-          </Link>
-        </div>
-
-        <nav className="flex-1 px-3">
-          <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-              <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-              <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-              <rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-            </svg>
-            Dashboard
-          </Link>
-          
-          <Link href="/my-study-sets" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            My Study Sets
-          </Link>
-
-          <Link href="/flashcards" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M6 3H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            Flashcards
-          </Link>
-
-          <Link href="/quizzes" className="flex items-center gap-3 px-3 py-2.5 mb-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M10 7V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <circle cx="10" cy="13" r="0.5" fill="currentColor"/>
-            </svg>
-            Quizzes
-          </Link>
-
-        </nav>
-
-        <div className="p-3">
-          <Link href="/settings" className="flex items-center gap-3 px-3 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M16 10C16 10 15 12 10 12C5 12 4 10 4 10C4 10 5 8 10 8C15 8 16 10 16 10Z" stroke="currentColor" strokeWidth="1.5"/>
-            </svg>
-            Settings
-          </Link>
-        </div>
-      </aside>
-
+    <AppLayout>
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 transition-colors duration-300">
@@ -112,52 +90,58 @@ export default function Quizzes() {
             <p className="text-gray-600 dark:text-gray-400 mb-6">Test your knowledge and track your progress</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { title: 'Chemistry Chapter 5', questions: 20, score: 85, status: 'completed' },
-                { title: 'World War II', questions: 15, score: 92, status: 'completed' },
-                { title: 'Spanish Verbs', questions: 25, score: 0, status: 'not started' },
-                { title: 'Calculus Practice', questions: 18, score: 78, status: 'completed' },
-                { title: 'Biology Cells', questions: 22, score: 45, status: 'in progress' },
-                { title: 'French Grammar', questions: 16, score: 0, status: 'not started' },
-              ].map((quiz, index) => (
-                <div key={index} className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 flex-1">{quiz.title}</h3>
-                    <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="10" cy="10" r="7" stroke="#8B5CF6" strokeWidth="1.5"/>
-                        <path d="M10 7V10" stroke="#8B5CF6" strokeWidth="1.5" strokeLinecap="round"/>
-                        <circle cx="10" cy="13" r="0.5" fill="#8B5CF6"/>
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Questions</span>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{quiz.questions}</span>
-                    </div>
-                    {quiz.status === 'completed' && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">Score</span>
-                        <span className="font-medium text-green-600">{quiz.score}%</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium text-center ${
-                    quiz.status === 'completed' ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
-                    quiz.status === 'in progress' ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' :
-                    'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  }`}>
-                    {quiz.status === 'completed' ? 'Completed' :
-                     quiz.status === 'in progress' ? 'In Progress' :
-                     'Not Started'}
-                  </div>
+              {loading ? (
+                <div className="col-span-full flex justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
                 </div>
-              ))}
+              ) : quizzes.length === 0 ? (
+                <div className="col-span-full bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-100 dark:border-gray-700 text-center">
+                  <p className="text-gray-600 dark:text-gray-400 mb-2">No quizzes yet</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500">Complete a practice test from a study set to see your results here.</p>
+                  <Link href="/my-study-sets" className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                    Go to My Study Sets
+                  </Link>
+                </div>
+              ) : (
+                quizzes.map((quiz) => (
+                  <Link key={quiz.id} href={`/my-study-sets/${quiz.studySetId}/practice`} className="block">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer">
+                      <div className="flex items-start justify-between mb-4">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 flex-1">{quiz.title}</h3>
+                        <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="10" cy="10" r="7" stroke="#8B5CF6" strokeWidth="1.5"/>
+                            <path d="M10 7V10" stroke="#8B5CF6" strokeWidth="1.5" strokeLinecap="round"/>
+                            <circle cx="10" cy="13" r="0.5" fill="#8B5CF6"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Questions</span>
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{quiz.questions}</span>
+                        </div>
+                        {quiz.status === 'completed' && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Score</span>
+                            <span className="font-medium text-green-600">{quiz.score}%</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className={`px-3 py-1 rounded-full text-xs font-medium text-center ${
+                        quiz.status === 'completed' ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                        'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                      }`}>
+                        {quiz.status === 'completed' ? 'Completed' : quiz.status}
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              )}
             </div>
           </div>
         </main>
       </div>
-    </div>
+    </AppLayout>
   );
 }

@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { StudySet } from '@/lib/types/database';
 import { stripMarkdownCodeFences } from '@/lib/utils/text';
+import AppLayout from '@/components/AppLayout';
 
 interface Flashcard {
   front: string;
@@ -463,20 +464,23 @@ export default function Flashcards() {
 
   if (loading || generating) {
     return (
-      <div className="flex h-screen bg-white dark:bg-gray-900 items-center justify-center">
-        <div className="text-center">
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
+          <div className="text-center">
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             {generating ? 'Generating flashcards...' : 'Loading...'}
           </p>
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   if (!studySet || cardsWithMastery.length === 0) {
     return (
-      <div className="flex h-screen bg-white dark:bg-gray-900 items-center justify-center">
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
         <div className="text-center max-w-md mx-auto px-4">
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             {!content ? 'No content available to generate flashcards from.' : 'Unable to generate flashcards.'}
@@ -488,14 +492,16 @@ export default function Flashcards() {
             Back to Study Set
           </Link>
         </div>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
   // Check if we have any cards to show
   if (filteredCards.length === 0) {
     return (
-      <div className="flex h-screen bg-white dark:bg-gray-900 items-center justify-center">
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
         <div className="text-center max-w-md mx-auto px-4">
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             All flashcards are mastered! Enable "Review mastered" to see them again.
@@ -507,12 +513,14 @@ export default function Flashcards() {
             Back to Study Set
           </Link>
         </div>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <AppLayout>
+      <div className="flex-1 flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-auto">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 lg:px-10 py-4 transition-colors duration-300 shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -804,6 +812,7 @@ export default function Flashcards() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

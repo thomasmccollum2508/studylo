@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile, StudySet } from '@/lib/types/database';
 import { useTheme } from '@/app/providers/ThemeProvider';
+import AppLayout from '@/components/AppLayout';
 
 function greeting() {
   const h = new Date().getHours();
@@ -28,6 +29,16 @@ function formatTimeAgo(dateStr: string) {
   return d.toLocaleDateString();
 }
 
+interface SavedQuiz {
+  id: string;
+  studySetId: string;
+  title: string;
+  questions: number;
+  score: number;
+  status: string;
+  completedAt: string;
+}
+
 function subjectBadgeClass(subject: string): string {
   const m: Record<string, string> = {
     Chemistry: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400',
@@ -46,6 +57,7 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateStudySetChoice, setShowCreateStudySetChoice] = useState(false);
+  const [recentQuizzes, setRecentQuizzes] = useState<SavedQuiz[]>([]);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -83,6 +95,11 @@ export default function Dashboard() {
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false });
         setStudySets((sets ?? []) as StudySet[]);
+
+        if (typeof window !== 'undefined') {
+          const raw = localStorage.getItem(`quizzes-${user.id}`);
+          setRecentQuizzes(raw ? JSON.parse(raw) : []);
+        }
       } finally {
         setLoading(false);
       }
@@ -95,72 +112,24 @@ export default function Dashboard() {
   const quizzesDone = profile?.quizzes_done ?? 0;
   const dayStreak = profile?.day_streak ?? 0;
   const recentSets = studySets.slice(0, 4);
+  const continueSet = studySets[0] ?? null;
+  const latestQuiz = recentQuizzes[0] ?? null;
+  const suggestions: { label: string; href: string; type: 'review' | 'practice' | 'flashcards' }[] = [];
+  if (latestQuiz) {
+    suggestions.push({ label: `Review "${latestQuiz.title}" (${latestQuiz.score}%)`, href: `/my-study-sets/${latestQuiz.studySetId}/practice`, type: 'review' });
+  }
+  studySets.slice(0, 3).forEach((set) => {
+    if (!suggestions.some((s) => s.href.includes(set.id))) {
+      if (suggestions.filter((s) => s.type === 'practice').length < 1) {
+        suggestions.push({ label: `Take practice test: ${set.title}`, href: `/my-study-sets/${set.id}/practice`, type: 'practice' });
+      } else if (suggestions.filter((s) => s.type === 'flashcards').length < 1) {
+        suggestions.push({ label: `Study flashcards: ${set.title}`, href: `/my-study-sets/${set.id}/flashcards`, type: 'flashcards' });
+      }
+    }
+  });
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      {/* Left Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-colors duration-300">
-        {/* Logo */}
-        <div className="p-6">
-          <Link href="/" className="flex items-center">
-            <img 
-              src={theme === 'dark' ? "/studylo%20logo%20dark.png" : "/studylo%20logo%202.png"}
-              alt="StudyLo Logo" 
-              className="h-10 w-auto transition-opacity duration-300"
-            />
-          </Link>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 px-3">
-          <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 mb-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-              <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-              <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-              <rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-            </svg>
-            Dashboard
-          </Link>
-          
-          <Link href="/my-study-sets" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            My Study Sets
-          </Link>
-
-          <Link href="/flashcards" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M6 3H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            Flashcards
-          </Link>
-
-          <Link href="/quizzes" className="flex items-center gap-3 px-3 py-2.5 mb-1 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M10 7V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <circle cx="10" cy="13" r="0.5" fill="currentColor"/>
-            </svg>
-            Quizzes
-          </Link>
-
-        </nav>
-
-        {/* Settings at bottom */}
-        <div className="p-3">
-          <Link href="/settings" className="flex items-center gap-3 px-3 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M16 10C16 10 15 12 10 12C5 12 4 10 4 10C4 10 5 8 10 8C15 8 16 10 16 10Z" stroke="currentColor" strokeWidth="1.5"/>
-            </svg>
-            Settings
-          </Link>
-        </div>
-      </aside>
-
+    <AppLayout>
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
@@ -336,13 +305,6 @@ export default function Dashboard() {
                           Create Study Set
                         </button>
                       </div>
-                      <div className="hidden md:block ml-8">
-                        <div className="w-32 h-32 bg-blue-200 dark:bg-blue-800/50 rounded-full flex items-center justify-center">
-                          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" fill="#0055FF" opacity="0.3"/>
-                          </svg>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -421,42 +383,130 @@ export default function Dashboard() {
               </div>
 
               {/* Right Sidebar */}
-              <div className="w-80">
-                {/* Continue Studying - empty until user has progress */}
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M6 4L14 10L6 16V4Z" fill="#10B981"/>
-                    </svg>
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Continue Studying</h2>
+              <div className="w-80 space-y-6">
+                {/* Continue Studying */}
+                <div>
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/30">
+                      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 4L14 10L6 16V4Z" className="fill-green-600 dark:fill-green-400"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-tight">Continue Studying</h2>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Pick up where you left off</p>
+                    </div>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 text-center transition-colors">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No study in progress.</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Start a set or quiz to see it here.</p>
+                  <div className="rounded-2xl border border-gray-200/80 dark:border-gray-600/80 bg-gradient-to-b from-white to-gray-50/80 dark:from-gray-800 dark:to-gray-800/80 shadow-sm overflow-hidden transition-all hover:shadow-md">
+                    {loading ? (
+                      <div className="p-6 flex items-center justify-center">
+                        <div className="w-6 h-6 border-2 border-green-500 dark:border-green-400 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : continueSet ? (
+                      <div className="p-5">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1 line-clamp-2">{continueSet.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{continueSet.card_count ?? 0} cards</p>
+                        <div className="flex flex-col gap-2.5">
+                          <Link
+                            href={`/my-study-sets/${continueSet.id}/flashcards`}
+                            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold text-sm hover:bg-green-100 dark:hover:bg-green-900/50 transition-all duration-200 border border-green-100 dark:border-green-800/50"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="3" y="5" width="14" height="10" rx="2"/>
+                              <path d="M6 3h8" strokeLinecap="round"/>
+                            </svg>
+                            Flashcards
+                          </Link>
+                          <Link
+                            href={`/my-study-sets/${continueSet.id}/practice`}
+                            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold text-sm hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all duration-200 border border-blue-100 dark:border-blue-800/50"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="10" cy="10" r="7"/>
+                              <path d="M10 6v4l2.5 2.5" strokeLinecap="round"/>
+                            </svg>
+                            Practice test
+                          </Link>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center">
+                        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400">
+                            <path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <circle cx="12" cy="12" r="9"/>
+                          </svg>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">No study in progress</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500">Start a set or quiz to see it here.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* AI Suggestions - empty until user has data */}
+                {/* Suggestions */}
                 <div>
-                  <div className="mb-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 2L11 7L14 4L12 9H14L10 18L9 13L6 16L8 11H6L10 2Z" fill="#0055FF"/>
+                    <div className="flex items-center gap-2.5 mb-3">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/30">
+                      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-600 dark:text-blue-400">
+                        <path d="M10 4C10 4 7 6 7 9C7 11 9 12 10 12C11 12 13 11 13 9C13 6 10 4 10 4Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M10 12V15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="10" cy="16" r="1" fill="currentColor"/>
                       </svg>
-                      <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">AI Suggestions</h2>
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Smart actions based on your study habits</p>
+                    <div>
+                      <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-tight">Suggestions</h2>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Next steps based on your studying</p>
+                    </div>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 text-center transition-colors">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No suggestions yet.</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Create study sets and we&apos;ll recommend next steps.</p>
-                    <button
-                      type="button"
-                      onClick={() => setShowCreateStudySetChoice(true)}
-                      className="inline-block mt-3 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm transition-colors"
-                    >
-                      Create Study Set →
-                    </button>
+                  <div className="rounded-2xl border border-gray-200/80 dark:border-gray-600/80 bg-gradient-to-b from-white to-gray-50/80 dark:from-gray-800 dark:to-gray-800/80 shadow-sm overflow-hidden transition-all hover:shadow-md">
+                    {loading ? (
+                      <div className="p-6 flex items-center justify-center">
+                        <div className="w-6 h-6 border-2 border-blue-500 dark:border-blue-400 border-t-transparent rounded-full animate-spin opacity-70" />
+                      </div>
+                    ) : suggestions.length > 0 ? (
+                      <div className="p-4 space-y-2">
+                        {suggestions.slice(0, 3).map((s, i) => (
+                          <Link
+                            key={`${s.type}-${s.href}-${i}`}
+                            href={s.href}
+                            className="flex items-center gap-3 py-3 px-4 rounded-xl bg-gray-50/80 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-600/50 text-gray-800 dark:text-gray-200 text-sm font-medium hover:border-blue-100 dark:hover:border-blue-800/50 hover:bg-blue-50/70 dark:hover:bg-blue-900/20 hover:shadow-sm transition-all duration-200 group"
+                          >
+                            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 shrink-0">
+                              {s.type === 'review' ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                              ) : s.type === 'practice' ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2" strokeLinecap="round"/></svg>
+                              ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M7 3v4M17 3v4" strokeLinecap="round"/></svg>
+                              )}
+                            </span>
+                            <span className="line-clamp-2 flex-1 min-w-0">{s.label}</span>
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-gray-400 dark:text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all">
+                              <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center">
+                        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400">
+                            <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">No suggestions yet</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">Create study sets and we&apos;ll recommend next steps.</p>
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateStudySetChoice(true)}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold text-sm hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-100 dark:border-blue-800/50 transition-all duration-200"
+                        >
+                          Create Study Set
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -523,6 +573,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </div>
+    </AppLayout>
   );
 }
