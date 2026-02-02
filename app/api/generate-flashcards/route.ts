@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-lite',
       generationConfig: {
-        maxOutputTokens: 8192,
+        maxOutputTokens: 16384,
         temperature: 0.3,
       },
     });
@@ -82,8 +82,8 @@ Back: He believed Germany was betrayed and unfairly treated.
 4️⃣ BACK SIDE RULES (STRICT)
 Each answer must: Be one short sentence | Be simple language | Contain one fact only | Avoid commas stacking ideas
 
-5️⃣ FLASHCARD COUNT
-Generate 4–8 flashcards per section. Quality over quantity.
+5️⃣ FLASHCARD COUNT (IMPORTANT)
+Generate as many high-quality flashcards as the content supports from the WHOLE notes. Extract every important term, concept, and definition. Aim for comprehensive coverage—do NOT limit to 8. Quality over quantity, but cover all key concepts in the material.
 
 6️⃣ FINAL QUALITY CHECK (MANDATORY)
 Before outputting a card, ask: If I saw only the front, would I know exactly what to recall? If NO → rewrite.
@@ -93,7 +93,7 @@ END RESULT: Flashcards will feel exactly like Quizlet cards, actively trigger me
 Return valid JSON only (no markdown, no code blocks). Format:
 {"cards":[{"front":"...","back":"..."},{"front":"...","back":"..."},...]}
 
-Section of notes:
+Full notes (extract all key concepts and generate as many flashcards as the content supports):
 ${fullContent}`;
 
     try {

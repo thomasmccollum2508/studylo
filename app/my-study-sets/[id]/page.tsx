@@ -118,6 +118,64 @@ export default function StudySetDetail() {
     return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
   };
 
+  const handleDownloadPdf = () => {
+    const hasOutlineContent = content && /<(?:\w+)/.test(content);
+    let bodyHtml: string;
+    let title = studySet?.title || 'Study Set Notes';
+
+    if (hasOutlineContent) {
+      bodyHtml = activeTab === 'quick-reference' ? generateQuickReference(content) : content;
+    } else if (flashcards.length > 0) {
+      title = `${studySet?.title || 'Study Set'} – Terms`;
+      bodyHtml = `<ol style="list-style:decimal;margin-left:1.5rem;margin-bottom:1rem;">${flashcards
+        .map(
+          (card) =>
+            `<li style="margin-bottom:1rem;"><strong>${escapeHtml(card.front)}</strong><p style="margin:0.25rem 0 0;color:#374151;">${escapeHtml(card.back)}</p></li>`
+        )
+        .join('')}</ol>`;
+    } else {
+      return;
+    }
+
+    const printStyles = `
+      body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; color: #111; line-height: 1.6; }
+      h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+      .meta { color: #6b7280; font-size: 0.875rem; margin-bottom: 2rem; }
+      h2 { font-size: 1.35rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+      h3 { font-size: 1.15rem; margin-top: 1rem; margin-bottom: 0.35rem; }
+      p { margin-bottom: 0.75rem; }
+      ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+      li { margin-bottom: 0.35rem; }
+      strong { font-weight: 700; }
+      @media print { body { padding: 1rem; } }
+    `;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${printStyles}</style></head><body>
+      <h1>${escapeHtml(title)}</h1>
+      <p class="meta">${studySet?.created_at ? `Created ${formatDate(studySet.created_at)}` : ''} · StudyLo</p>
+      <div class="content">${bodyHtml}</div>
+      </body></html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      alert('Please allow pop-ups to download the PDF.');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+      win.onafterprint = () => win.close();
+    }, 250);
+  };
+
+  function escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   const generateQuickReference = (htmlContent: string): string => {
     if (!htmlContent) return '';
     
@@ -276,8 +334,8 @@ export default function StudySetDetail() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+        {/* Tabs + Download PDF */}
+        <div className="border-b border-gray-200 dark:border-gray-700 mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex gap-6">
             <button
               onClick={() => setActiveTab('outline')}
@@ -300,6 +358,20 @@ export default function StudySetDetail() {
               Quick reference
             </button>
           </div>
+          {(content || flashcards.length > 0) && (
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              className="flex items-center gap-2 pb-4 px-1 font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 15V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Download as PDF
+            </button>
+          )}
         </div>
 
         {/* Study Options Section - show when we have outline content or flashcards (manual set) */}
@@ -393,6 +465,16 @@ export default function StudySetDetail() {
                   <path d="M12 8V12L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
                 Practise questions
+              </Link>
+              {/* AI Chat - chat about this study set's notes and topics */}
+              <Link
+                href={`/my-study-sets/${params.id}/ai-chat`}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17 9.5C17 13.09 13.64 16 9.5 16C8.22 16 7.02 15.63 6 15L2 16L3.5 12.5C2.37 11.48 1.5 10.08 1.5 8.5C1.5 4.91 4.86 2 9 2C13.14 2 17 4.91 17 9.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                AI Chat
               </Link>
             </div>
           </div>

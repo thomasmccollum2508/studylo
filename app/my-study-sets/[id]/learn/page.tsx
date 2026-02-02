@@ -51,9 +51,10 @@ export default function LearnMode() {
   const ROUND_SIZE = 8;
   const MASTERY_THRESHOLD = 2; // correct answers in separate rounds to master
 
-  // Session state: one round at a time (Quizlet-style)
+  // Session state: strict groups of 8 — all terms split into groups, advance only after mastering current group
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState<LearnQuestion | null>(null);
-  const [roundCards, setRoundCards] = useState<FlashcardWithMastery[]>([]); // Cards in current round only
+  const [roundCards, setRoundCards] = useState<FlashcardWithMastery[]>([]); // Cards in current group (up to 8)
   const [roundCardsAnswered, setRoundCardsAnswered] = useState<Set<string>>(new Set()); // CardIds we've already shown this round
   
   // Answer state
@@ -215,19 +216,19 @@ export default function LearnMode() {
     }
   };
 
-  // Build next round: mix New + Learning first, show Mastered rarely (Quizlet-style)
+  // Total groups of 8 (last group may have fewer)
+  const totalGroups = Math.ceil(cardsWithMastery.length / ROUND_SIZE);
+
+  // Get cards for a specific group (group 0 = first 8, group 1 = next 8, etc.)
+  const getCardsForGroup = (groupIndex: number): FlashcardWithMastery[] => {
+    const start = groupIndex * ROUND_SIZE;
+    const end = Math.min(start + ROUND_SIZE, cardsWithMastery.length);
+    return cardsWithMastery.slice(start, end);
+  };
+
+  // Build round: current group only (strict groups of 8 — no mixing from other groups)
   const buildRound = (): FlashcardWithMastery[] => {
-    const newAndLearning = cardsWithMastery.filter(c => c.mastery?.status === 'new' || c.mastery?.status === 'learning');
-    const mastered = cardsWithMastery.filter(c => c.mastery?.status === 'mastered');
-    const pool = [...newAndLearning];
-    if (pool.length < ROUND_SIZE && mastered.length > 0) {
-      const need = Math.min(ROUND_SIZE - pool.length, Math.max(1, Math.floor(mastered.length * 0.2)));
-      const shuffled = [...mastered].sort(() => Math.random() - 0.5);
-      pool.push(...shuffled.slice(0, need));
-    }
-    const size = Math.min(ROUND_SIZE, pool.length);
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, size);
+    return getCardsForGroup(currentGroupIndex);
   };
 
   // Generate multiple choice options
@@ -414,15 +415,25 @@ export default function LearnMode() {
     }
   };
 
-  // Handle starting the session after setup (build first round, snapshot mastery for summary)
+  // Handle starting the session: start at first group that has at least one non-mastered card
   const handleStartSession = () => {
     setShowSetup(false);
     setSessionStartTime(new Date());
-    const round = buildRound();
-    if (round.length === 0) {
+    const groups = totalGroups;
+    let startGroup = 0;
+    for (let g = 0; g < groups; g++) {
+      const groupCards = getCardsForGroup(g);
+      if (groupCards.some(c => c.mastery?.status !== 'mastered')) {
+        startGroup = g;
+        break;
+      }
+    }
+    if (startGroup >= groups) {
       setSessionComplete(true);
       return;
     }
+    setCurrentGroupIndex(startGroup);
+    const round = getCardsForGroup(startGroup).filter(c => c.mastery?.status !== 'mastered');
     setRoundCards(round);
     setRoundCardsAnswered(new Set());
     const startSnapshot: { [cardId: string]: MasteryStatus } = {};
@@ -471,7 +482,7 @@ export default function LearnMode() {
                 {studySet?.title || 'Study Set'}
               </p>
               <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                {availableCount} cards available to study
+                {totalCount} terms in {totalGroups} group{totalGroups !== 1 ? 's' : ''} of 8 · {availableCount} left to study
               </div>
             </div>
 
@@ -571,14 +582,25 @@ export default function LearnMode() {
     );
   }
 
-  // Progress Summary (after each round) — Quizlet-style
+  // Progress Summary: "Continue learning" = only terms still not mastered (leave out mastered until everything is mastered)
   const handleContinueLearning = () => {
     setShowRoundSummary(false);
-    const round = buildRound();
+    let nextGroupIndex = currentGroupIndex;
+    let round: FlashcardWithMastery[] = [];
+    for (let g = currentGroupIndex; g < totalGroups; g++) {
+      const groupCards = getCardsForGroup(g);
+      const stillToLearn = groupCards.filter(c => cardsWithMastery.find(x => x.cardId === c.cardId)?.mastery?.status !== 'mastered');
+      if (stillToLearn.length > 0) {
+        nextGroupIndex = g;
+        round = stillToLearn;
+        break;
+      }
+    }
     if (round.length === 0) {
       setSessionComplete(true);
       return;
     }
+    setCurrentGroupIndex(nextGroupIndex);
     setRoundCards(round);
     setRoundCardsAnswered(new Set());
     const startSnapshot: { [cardId: string]: MasteryStatus } = {};
@@ -588,18 +610,19 @@ export default function LearnMode() {
     createQuestion(first);
   };
 
+  // Review Learning: same group, only terms still not mastered
   const handleReviewLearning = () => {
     setShowRoundSummary(false);
-    const learning = cardsWithMastery.filter(c => c.mastery?.status === 'learning');
-    if (learning.length === 0) {
+    const groupCards = getCardsForGroup(currentGroupIndex);
+    const round = groupCards.filter(c => cardsWithMastery.find(x => x.cardId === c.cardId)?.mastery?.status !== 'mastered');
+    if (round.length === 0) {
       handleContinueLearning();
       return;
     }
-    const round = learning.length <= ROUND_SIZE ? learning : [...learning].sort(() => Math.random() - 0.5).slice(0, ROUND_SIZE);
     setRoundCards(round);
     setRoundCardsAnswered(new Set());
     const startSnapshot: { [cardId: string]: MasteryStatus } = {};
-    round.forEach(c => { startSnapshot[c.cardId] = 'learning'; });
+    round.forEach(c => { startSnapshot[c.cardId] = (c.mastery?.status ?? 'new') as MasteryStatus; });
     setRoundStartMastery(startSnapshot);
     const first = round[Math.floor(Math.random() * round.length)];
     createQuestion(first);
@@ -627,7 +650,8 @@ export default function LearnMode() {
         </header>
         <main className="max-w-3xl mx-auto px-8 py-8">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 shadow-xl">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Progress Summary</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1 text-center">Progress Summary</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center">Group {currentGroupIndex + 1} of {totalGroups}</p>
 
             {/* Overall Progress */}
             <div className="mb-8">
@@ -752,8 +776,8 @@ export default function LearnMode() {
     <AppLayout>
       <div className="flex-1 flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-auto">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 shrink-0">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 md:px-8 py-4 shrink-0">
+        <div className="w-full flex items-center justify-between">
           <Link href={`/my-study-sets/${params.id}`} className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -764,7 +788,7 @@ export default function LearnMode() {
           <div className="flex-1 mx-8">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                {studySet?.title || 'Learn Mode'}
+                {studySet?.title || 'Learn Mode'} · Group {currentGroupIndex + 1} of {totalGroups}
               </span>
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 {masteredCount} / {totalCount} mastered
@@ -780,10 +804,10 @@ export default function LearnMode() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-8 py-12 flex-1 flex flex-col">
-        {/* Fixed-size rectangle: same dimensions for every question */}
-        <div className="w-full h-[min(72vh,680px)] min-h-[min(72vh,680px)] bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-10 border border-gray-200 dark:border-gray-700 shadow-xl flex flex-col">
+      {/* Main Content - full width so questions cover the page */}
+      <main className="w-full flex-1 flex flex-col px-4 sm:px-6 md:px-8 lg:px-10 py-8 md:py-12">
+        {/* Question card: full width of content area */}
+        <div className="w-full min-h-[min(72vh,680px)] flex flex-col bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 md:p-10 border border-gray-200 dark:border-gray-700 shadow-xl">
           {/* Question */}
           <div className="mb-8 flex-shrink-0">
             <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">

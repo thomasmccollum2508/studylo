@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyALciv_C3rhtP1BDuQRT-g2ha1s8vMh0zg';
 
-const SYSTEM_INSTRUCTION = `You are a friendly, knowledgeable study assistant for StudyLo. You help students with:
+const BASE_SYSTEM = `You are a friendly, knowledgeable study assistant for StudyLo. You help students with:
 - Understanding notes, concepts, and definitions
 - Answering questions about their study material
 - Explaining answers and giving hints without spoiling
@@ -21,7 +21,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages } = body as { messages?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }> };
+    const { messages, studySetContext } = body as {
+      messages?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>;
+      studySetContext?: { title?: string; notesExcerpt?: string; terms?: string[] };
+    };
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -30,10 +33,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let systemInstruction = BASE_SYSTEM;
+    if (studySetContext && (studySetContext.notesExcerpt || (studySetContext.terms && studySetContext.terms.length > 0))) {
+      const parts: string[] = [
+        'The user is chatting about a specific study set. Use ONLY the following material to answer—base your answers on these notes and terms. Do not invent content that is not present here.',
+        studySetContext.title ? `Study set title: ${studySetContext.title}` : '',
+        studySetContext.notesExcerpt
+          ? `\nNotes/content (use this as the main reference):\n${studySetContext.notesExcerpt}`
+          : '',
+        studySetContext.terms && studySetContext.terms.length > 0
+          ? `\nTerms and definitions in this set:\n${studySetContext.terms
+              .map((t: unknown) =>
+                typeof t === 'string' ? t : typeof t === 'object' && t && 'front' in t && 'back' in t
+                  ? `${(t as { front: string }).front} → ${(t as { back: string }).back}`
+                  : String(t)
+              )
+              .join('\n')}`
+          : '',
+      ].filter(Boolean);
+      systemInstruction = `${BASE_SYSTEM}\n\n${parts.join('\n')}`;
+    }
+
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
-      systemInstruction: SYSTEM_INSTRUCTION,
+      systemInstruction,
       generationConfig: {
         maxOutputTokens: 2048,
         temperature: 0.7,
