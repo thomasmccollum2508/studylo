@@ -419,9 +419,10 @@ export default function ResultsPage() {
                         }
 
                         // Generate flashcards from the summary (only when summary exists)
-                        if (summary) {
+                        const summaryForFlashcards = summary;
+                        if (summaryForFlashcards) {
                           try {
-                            const textContent = summary.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                            const textContent = summaryForFlashcards.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
                             const maxLength = 50000;
                             const truncatedContent = textContent.length > maxLength 
                               ? textContent.substring(0, maxLength)
