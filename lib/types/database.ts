@@ -4,6 +4,7 @@ export type Profile = {
   avatar_url: string | null;
   quizzes_done: number;
   day_streak: number;
+  last_streak_date: string | null; // ISO date 'YYYY-MM-DD' when we last counted a day for streak
   updated_at: string;
 };
 

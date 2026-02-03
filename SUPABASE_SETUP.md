@@ -53,6 +53,7 @@ create table public.profiles (
   avatar_url text,
   quizzes_done int not null default 0,
   day_streak int not null default 0,
+  last_streak_date date,  -- last calendar day we counted for streak (UTC)
   updated_at timestamptz default now()
 );
 
@@ -98,6 +99,12 @@ create or replace trigger on_auth_user_created
 ```
 
 Run this in the SQL Editor. The dashboard and My Study Sets pages use these tables; stats start at 0 and update as users create study sets and (later) complete quizzes.
+
+**If you already have a `profiles` table**, add the streak date column:
+
+```sql
+alter table public.profiles add column if not exists last_streak_date date;
+```
 
 ## Summary
 

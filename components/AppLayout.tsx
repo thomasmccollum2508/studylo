@@ -109,9 +109,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 '/quizzes',
                 'Quizzes',
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M10 7V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  <circle cx="10" cy="13" r="0.5" fill="currentColor" />
+                  <rect x="5" y="2" width="10" height="16" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M7 6H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M7 10H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M7 14H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               )}
               {navLink(

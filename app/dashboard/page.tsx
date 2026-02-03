@@ -86,7 +86,18 @@ export default function Dashboard() {
             { id: user.id, display_name: name },
             { onConflict: 'id' }
           );
-          setProfile({ id: user.id, display_name: name, avatar_url: null, quizzes_done: 0, day_streak: 0, updated_at: new Date().toISOString() });
+          setProfile({ id: user.id, display_name: name, avatar_url: null, quizzes_done: 0, day_streak: 0, last_streak_date: null, updated_at: new Date().toISOString() });
+        }
+
+        // Update day streak when user uses the app (once per calendar day)
+        try {
+          const res = await fetch('/api/update-streak', { method: 'POST' });
+          const data = res.ok ? await res.json() : null;
+          if (data?.success && data.updated && typeof data.day_streak === 'number') {
+            setProfile((prev) => (prev ? { ...prev, day_streak: data.day_streak } : null));
+          }
+        } catch {
+          // Non-blocking; streak will update on next visit
         }
 
         const { data: sets } = await supabase
