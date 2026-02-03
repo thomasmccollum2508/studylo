@@ -418,33 +418,35 @@ export default function ResultsPage() {
                           localStorage.setItem(`note-content-${data.id}`, summary);
                         }
 
-                        // Generate flashcards from the summary
-                        try {
-                          const textContent = summary.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-                          const maxLength = 50000;
-                          const truncatedContent = textContent.length > maxLength 
-                            ? textContent.substring(0, maxLength)
-                            : textContent;
+                        // Generate flashcards from the summary (only when summary exists)
+                        if (summary) {
+                          try {
+                            const textContent = summary.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                            const maxLength = 50000;
+                            const truncatedContent = textContent.length > maxLength 
+                              ? textContent.substring(0, maxLength)
+                              : textContent;
 
-                          const flashcardResponse = await fetch('/api/generate-flashcards', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              content: truncatedContent,
-                            }),
-                          });
+                            const flashcardResponse = await fetch('/api/generate-flashcards', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                content: truncatedContent,
+                              }),
+                            });
 
-                          const flashcardData = await flashcardResponse.json();
+                            const flashcardData = await flashcardResponse.json();
 
-                          if (flashcardData.success && flashcardData.cards) {
-                            // Save flashcards to localStorage
-                            localStorage.setItem(`flashcards-${data.id}`, JSON.stringify(flashcardData.cards));
+                            if (flashcardData.success && flashcardData.cards) {
+                              // Save flashcards to localStorage
+                              localStorage.setItem(`flashcards-${data.id}`, JSON.stringify(flashcardData.cards));
+                            }
+                          } catch (flashcardError) {
+                            console.error('Error generating flashcards:', flashcardError);
+                            // Continue even if flashcard generation fails
                           }
-                        } catch (flashcardError) {
-                          console.error('Error generating flashcards:', flashcardError);
-                          // Continue even if flashcard generation fails
                         }
 
                         setSaveSuccess(true);
