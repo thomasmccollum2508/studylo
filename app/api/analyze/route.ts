@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const GEMINI_API_KEY = 'AIzaSyALciv_C3rhtP1BDuQRT-g2ha1s8vMh0zg';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 /** Instructions for the AI when turning user content into notes (full, exam-ready notes – not summaries). */
 const EXAM_NOTES_SYSTEM_INSTRUCTIONS = `Your task is to create FULL, DETAILED, EXAM-READY NOTES.
