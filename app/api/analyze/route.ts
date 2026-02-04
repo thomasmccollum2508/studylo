@@ -478,7 +478,7 @@ ${htmlFormattingInstructions()}`;
           }
         }
         
-        // If we exhausted retries, throw the last error
+        // If we exhausted retries, throw the last error (no unreachable return here)
         throw lastError;
       } catch (error: any) {
         console.error('Gemini API error:', error);
