@@ -1,6 +1,9 @@
 import { Suspense } from 'react';
 import ResultsPageContent from './ResultsPageContent';
 
+// Avoid prerender: this page uses useSearchParams and client-only state (sessionStorage)
+export const dynamic = 'force-dynamic';
+
 export default function ResultsPage() {
   return (
     <Suspense
