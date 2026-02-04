@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+/** API key from env (no hardcoding). Response objects use explicit summary: value to avoid scope errors in build. */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 /** Instructions for the AI when turning user content into notes (full, exam-ready notes – not summaries). */
