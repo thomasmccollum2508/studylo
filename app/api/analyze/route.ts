@@ -366,11 +366,10 @@ Turn the content in this image into full, exam-ready notes. Extract ALL text and
           ]);
           
           const analyzeResponse = await analyzeResult.response;
-          const summary = stripMarkdownCodeFences(analyzeResponse.text());
-
-            return NextResponse.json({
+          const notesFromImage = stripMarkdownCodeFences(analyzeResponse.text());
+          return NextResponse.json({
             success: true,
-            summary,
+            summary: notesFromImage,
             source: 'image'
           });
         }
@@ -387,11 +386,10 @@ ${htmlFormattingInstructions()}`;
 
         const summaryResult = await model.generateContent(prompt);
         const summaryResponse = await summaryResult.response;
-        const summary = stripMarkdownCodeFences(summaryResponse.text());
-        
-        return NextResponse.json({ 
-          success: true, 
-          summary,
+        const notesFromExtractedText = stripMarkdownCodeFences(summaryResponse.text());
+        return NextResponse.json({
+          success: true,
+          summary: notesFromExtractedText,
           source: 'image'
         });
       } catch (error: any) {
@@ -448,12 +446,11 @@ ${htmlFormattingInstructions()}`;
           try {
             const result = await model.generateContent(prompt);
             const response = await result.response;
-            const summary = stripMarkdownCodeFences(response.text());
+            const notesContent = stripMarkdownCodeFences(response.text());
             console.log('Successfully received response from Gemini');
-            
-            return NextResponse.json({ 
-              success: true, 
-              summary,
+            return NextResponse.json({
+              success: true,
+              summary: notesContent,
               source: inputMethod
             });
           } catch (error: any) {
