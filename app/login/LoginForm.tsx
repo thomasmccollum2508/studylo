@@ -44,7 +44,10 @@ export default function LoginForm() {
       
       if (data?.session) {
         const next = searchParams.get('next') ?? '/dashboard';
-        window.location.href = next;
+        // Let the browser commit auth cookies before navigating (fixes production redirect)
+        await new Promise((r) => setTimeout(r, 100));
+        router.push(next);
+        router.refresh();
         return;
       } else {
         setError('Login failed. No session created.');

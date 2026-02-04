@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   try {
     return await updateSession(request);
   } catch (err) {
-    console.error('[middleware] error:', err);
+    console.error('[proxy] error:', err);
     return NextResponse.next({ request });
   }
 }
