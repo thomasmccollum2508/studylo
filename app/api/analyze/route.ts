@@ -480,12 +480,6 @@ ${htmlFormattingInstructions()}`;
         
         // If we exhausted retries, throw the last error
         throw lastError;
-
-        return NextResponse.json({ 
-          success: true, 
-          summary,
-          source: inputMethod
-        });
       } catch (error: any) {
         console.error('Gemini API error:', error);
         const errorMessage = error?.message || error?.toString() || 'Unknown error';
