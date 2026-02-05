@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen w-full min-w-0 overflow-x-hidden bg-white">
       <Header />
 
       {/* Hero Section */}

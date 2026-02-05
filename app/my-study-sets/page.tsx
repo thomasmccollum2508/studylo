@@ -233,25 +233,25 @@ export default function MyStudySets() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 transition-colors duration-300">
-          <div className="flex items-center justify-between">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-8 py-4 transition-colors duration-300 shrink-0">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             {/* Search Bar */}
-            <div className="flex-1 max-w-2xl">
+            <div className="flex-1 w-full min-w-0 max-w-2xl">
               <div className="relative">
-                <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 shrink-0" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M14 14L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
                 <input
                   type="text"
                   placeholder="Search study sets, flashcards, quizzes..."
-                  className="w-full pl-12 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                  className="w-full min-w-0 pl-12 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
                 />
               </div>
             </div>
 
             {/* Right Icons */}
-            <div className="flex items-center gap-4 ml-6">
+            <div className="flex items-center gap-2 md:gap-4 md:ml-6 shrink-0">
               <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M10 3C10 3 8 3 8 5C8 6 8 10 6 10C4 10 4 8 4 8V12C4 12 4 10 6 10C8 10 8 14 8 15C8 17 10 17 10 17C10 17 12 17 12 15C12 14 12 10 14 10C16 10 16 12 16 12V8C16 8 16 10 14 10C12 10 12 6 12 5C12 3 10 3 10 3Z" stroke="currentColor" strokeWidth="1.5"/>
@@ -274,12 +274,12 @@ export default function MyStudySets() {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-6xl">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 min-h-0">
+          <div className="max-w-6xl w-full min-w-0">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Study Sets</h1>
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 break-words">My Study Sets</h1>
+              <div className="flex flex-wrap items-center gap-2 md:gap-3">
                 <button 
                   onClick={() => setShowCreateDialog(true)}
                   className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2"
@@ -342,10 +342,10 @@ export default function MyStudySets() {
                   const isExpanded = expandedSubjects.has(subject.name);
                   
                   return (
-                    <div key={`subject-${subject.name}`} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all">
+                    <div key={`subject-${subject.name}`} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all min-w-0">
                       {/* Subject Header */}
                       <div 
-                        className="p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                        className="p-4 md:p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                         onClick={() => {
                           const newExpanded = new Set(expandedSubjects);
                           if (isExpanded) {
@@ -356,16 +356,16 @@ export default function MyStudySets() {
                           setExpandedSubjects(newExpanded);
                         }}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 ${colorClass.bg} rounded-lg flex items-center justify-center`}>
+                        <div className="flex items-center justify-between gap-3 min-w-0">
+                          <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                            <div className={`w-10 h-10 md:w-12 md:h-12 shrink-0 ${colorClass.bg} rounded-lg flex items-center justify-center`}>
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M5 7C5 5.89543 5.89543 5 7 5H17C18.1046 5 19 5.89543 19 7V17C19 18.1046 18.1046 19 17 19H7C5.89543 19 5 18.1046 5 17V7Z" stroke={colorClass.stroke} strokeWidth="2"/>
                                 <path d="M9 5V19" stroke={colorClass.stroke} strokeWidth="2"/>
                               </svg>
                             </div>
-                            <div>
-                              <h3 className="font-semibold text-gray-900 dark:text-gray-100">{subject.name}</h3>
+                            <div className="min-w-0">
+                              <h3 className="font-semibold text-gray-900 dark:text-gray-100 break-words">{subject.name}</h3>
                               <p className="text-sm text-gray-500 dark:text-gray-400">{subject.sets} study set{subject.sets !== 1 ? 's' : ''}</p>
                             </div>
                           </div>
@@ -382,8 +382,8 @@ export default function MyStudySets() {
                       
                       {/* Study Sets inside Subject */}
                       {isExpanded && subjectStudySets.length > 0 && (
-                        <div className="px-6 pb-6 pt-2 border-t border-gray-100 dark:border-gray-700">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                        <div className="px-4 md:px-6 pb-4 md:pb-6 pt-2 border-t border-gray-100 dark:border-gray-700">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                             {subjectStudySets.map((set) => {
                               return (
                                 <button
@@ -448,15 +448,15 @@ export default function MyStudySets() {
                             setExpandedSubjects(newExpanded);
                           }}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                          <div className="flex items-center justify-between gap-3 min-w-0">
+                            <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                              <div className="w-10 h-10 md:w-12 md:h-12 shrink-0 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                   <path d="M5 7C5 5.89543 5.89543 5 7 5H17C18.1046 5 19 5.89543 19 7V17C19 18.1046 18.1046 19 17 19H7C5.89543 19 5 18.1046 5 17V7Z" stroke="#6B7280" strokeWidth="2"/>
                                   <path d="M9 5V19" stroke="#6B7280" strokeWidth="2"/>
                                 </svg>
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">Uncategorized</h3>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">{uncategorizedSets.length} study set{uncategorizedSets.length !== 1 ? 's' : ''}</p>
                               </div>
@@ -473,8 +473,8 @@ export default function MyStudySets() {
                         </div>
                         
                         {isExpanded && (
-                          <div className="px-6 pb-6 pt-2 border-t border-gray-100 dark:border-gray-700">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                          <div className="px-4 md:px-6 pb-4 md:pb-6 pt-2 border-t border-gray-100 dark:border-gray-700">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                               {uncategorizedSets.map((set) => {
                                 return (
                                   <button

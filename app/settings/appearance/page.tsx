@@ -12,7 +12,7 @@ export default function SettingsAppearance() {
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose light or dark mode.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 max-w-md">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md w-full">
         <button
           type="button"
           onClick={() => theme !== 'light' && toggleTheme()}

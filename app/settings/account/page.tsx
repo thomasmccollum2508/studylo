@@ -218,7 +218,7 @@ export default function SettingsAccount() {
             )}
           </div>
         ) : (
-          <form onSubmit={handleChangePassword} className="mt-2 space-y-3 max-w-sm">
+          <form onSubmit={handleChangePassword} className="mt-2 space-y-3 w-full max-w-sm">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current password</label>
               <input

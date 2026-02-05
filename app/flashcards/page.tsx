@@ -138,23 +138,23 @@ export default function Flashcards() {
     <AppLayout>
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 transition-colors duration-300">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 max-w-2xl">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-8 py-4 transition-colors duration-300 shrink-0">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex-1 w-full min-w-0 max-w-2xl">
               <div className="relative">
-                <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 shrink-0" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M14 14L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
                 <input
                   type="text"
                   placeholder="Search study sets, flashcards, quizzes..."
-                  className="w-full pl-12 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                  className="w-full min-w-0 pl-12 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-4 ml-6">
+            <div className="flex items-center gap-2 md:gap-4 md:ml-6 shrink-0">
               <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M10 3C10 3 8 3 8 5C8 6 8 10 6 10C4 10 4 8 4 8V12C4 12 4 10 6 10C8 10 8 14 8 15C8 17 10 17 10 17C10 17 12 17 12 15C12 14 12 10 14 10C16 10 16 12 16 12V8C16 8 16 10 14 10C12 10 12 6 12 5C12 3 10 3 10 3Z" stroke="currentColor" strokeWidth="1.5"/>
@@ -177,11 +177,11 @@ export default function Flashcards() {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-6xl">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 min-h-0">
+          <div className="max-w-6xl w-full min-w-0">
             <div className="mb-2">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Flashcards</h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">Review and master your study materials</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 break-words">Flashcards</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1 break-words">Review and master your study materials</p>
             </div>
             
             {loading ? (
@@ -220,10 +220,10 @@ export default function Flashcards() {
                           router.push(`/flashcards/${flashcardId}`);
                         }
                       }}
-                      className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer text-left w-full"
+                      className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer text-left w-full min-w-0"
                     >
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{title}</h3>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 min-w-0">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base md:text-lg break-words min-w-0">{title}</h3>
                         <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
                           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="3" y="5" width="14" height="10" rx="2" stroke="#10B981" strokeWidth="1.5"/>

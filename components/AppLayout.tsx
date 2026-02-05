@@ -6,12 +6,15 @@ import { useTheme } from '@/app/providers/ThemeProvider';
 import { useEffect, useState } from 'react';
 
 const SIDEBAR_STORAGE_KEY = 'sidebar-collapsed';
+const MOBILE_BREAKPOINT = 768;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -23,6 +26,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setCollapsed(stored === 'true');
   }, [mounted]);
 
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const handler = () => setIsMobile(mql.matches);
+    handler();
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) setMobileMenuOpen(false);
+  }, [isMobile]);
+
   const toggleSidebar = () => {
     const next = !collapsed;
     setCollapsed(next);
@@ -31,41 +46,66 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+  const openMobileMenu = () => setMobileMenuOpen(true);
+  const handleSidebarToggle = () => {
+    if (isMobile) closeMobileMenu();
+    else toggleSidebar();
+  };
+
+  const showFullSidebar = !collapsed || mobileMenuOpen;
+
   function navLink(href: string, label: string, icon: React.ReactNode, active?: boolean) {
     const isActive = active ?? (pathname === href || (href !== '/dashboard' && pathname.startsWith(href)));
     return (
       <Link
         href={href}
+        onClick={closeMobileMenu}
         className={`flex items-center gap-3 px-3 py-2.5 mb-1 rounded-lg font-medium transition-colors ${
           isActive ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
         }`}
       >
         {icon}
-        {!collapsed && <span>{label}</span>}
+        {showFullSidebar && <span>{label}</span>}
       </Link>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      {/* Left column: hamburger + sidebar */}
+    <div className="flex min-h-screen h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-x-hidden">
+      {/* Backdrop when mobile menu is open */}
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={closeMobileMenu}
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+        />
+      )}
+
+      {/* Left column: sidebar — hidden on mobile (hamburger only), in-flow on desktop */}
       <div
-        className={`flex flex-col shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-200 ease-out ${
-          collapsed ? 'w-14' : 'w-64'
-        }`}
+        className={`flex flex-col shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-200 ease-out
+          fixed md:relative inset-y-0 left-0 z-40 w-64
+          -translate-x-full md:translate-x-0
+          ${mobileMenuOpen ? 'translate-x-0' : ''}
+          ${collapsed && !mobileMenuOpen ? 'md:w-14' : 'md:w-64'}
+          pointer-events-none md:pointer-events-auto
+          ${mobileMenuOpen ? 'pointer-events-auto' : ''}
+        `}
       >
         <div className="flex items-center shrink-0 w-full pt-3">
           <button
             type="button"
-            onClick={toggleSidebar}
+            onClick={handleSidebarToggle}
             className="flex items-center justify-center w-14 h-14 shrink-0 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+            aria-label={isMobile ? 'Close menu' : collapsed ? 'Show sidebar' : 'Hide sidebar'}
           >
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          {!collapsed && (
+          {showFullSidebar && (
             <div className="flex-1 min-w-0 pr-3">
               <Link href="/" className="flex items-center">
                 <img
@@ -77,7 +117,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           )}
         </div>
-        {!collapsed && (
+        {showFullSidebar && (
           <>
             <nav className="flex-1 px-3 pt-5 overflow-y-auto">
               {navLink(
@@ -126,6 +166,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="p-3 border-t border-gray-200 dark:border-gray-700">
               <Link
                 href="/settings"
+                onClick={closeMobileMenu}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
                   pathname === '/settings' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
@@ -141,8 +182,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      {/* Main content — full width on mobile (sidebar is overlay-only) */}
+      <div className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto min-w-0 w-full">
+        {/* Mobile only: hamburger bar (sidebar is hidden until menu is opened) */}
+        <header className="md:hidden flex items-center gap-2 shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 w-full" aria-label="Dashboard menu">
+          <button
+            type="button"
+            onClick={openMobileMenu}
+            className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            aria-label="Open menu"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <Link href="/" className="flex items-center" onClick={closeMobileMenu}>
+            <img
+              src={theme === 'dark' ? '/studylo%20logo%20dark.png' : '/studylo%20logo%202.png'}
+              alt="StudyLo"
+              className="h-9 w-auto"
+            />
+          </Link>
+        </header>
         {children}
       </div>
     </div>

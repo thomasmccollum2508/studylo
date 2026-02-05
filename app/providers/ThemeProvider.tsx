@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 type Theme = 'light' | 'dark';
 
@@ -12,6 +13,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [theme, setTheme] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
 
@@ -45,6 +47,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       applyTheme(initialTheme);
     }
   }, []);
+
+  // Apply theme on route change: landing page (/) always light; rest of app uses selected theme
+  useEffect(() => {
+    if (!mounted || typeof document === 'undefined') return;
+    const isLanding = pathname === '/';
+    const effectiveTheme = isLanding ? 'light' : theme;
+    applyTheme(effectiveTheme);
+  }, [pathname, theme, mounted]);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

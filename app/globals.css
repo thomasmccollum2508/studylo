@@ -12,10 +12,24 @@
   --foreground: #ededed;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
   transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+/* Prevent text overflow on small screens */
+body,
+.prose,
+[class*="text-"] {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 @keyframes float {

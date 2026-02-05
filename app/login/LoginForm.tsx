@@ -53,7 +53,16 @@ export default function LoginForm() {
         setLoading(false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+      const isNetworkError =
+        message === 'Failed to fetch' ||
+        message.toLowerCase().includes('network') ||
+        message.toLowerCase().includes('load failed');
+      setError(
+        isNetworkError
+          ? 'Cannot reach the auth server. Check your internet connection. If you use Supabase, ensure your project is not paused and NEXT_PUBLIC_SUPABASE_URL is correct.'
+          : message
+      );
       setEmail(emailToKeep);
       setPassword('');
       setLoading(false);

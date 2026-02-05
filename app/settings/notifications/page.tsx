@@ -28,10 +28,10 @@ export default function SettingsNotifications() {
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Control how we contact you.</p>
       </div>
 
-      <div className="flex items-center justify-between py-3 px-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-        <div>
-          <p className="font-medium text-gray-900 dark:text-gray-100">Email notifications</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Study reminders and product updates</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-3 px-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 min-w-0">
+        <div className="min-w-0">
+          <p className="font-medium text-gray-900 dark:text-gray-100 break-words">Email notifications</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 break-words">Study reminders and product updates</p>
         </div>
         <button
           type="button"

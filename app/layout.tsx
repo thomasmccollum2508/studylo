@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "./providers/ThemeProvider";
@@ -9,6 +9,11 @@ const inter = localFont({
   weight: "100 900",
   fallback: ["system-ui", "sans-serif"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "StudyLo",
@@ -23,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased bg-white dark:bg-gray-900`}>
+      <body className={`${inter.variable} font-sans antialiased bg-white dark:bg-gray-900 min-w-0 w-full`}>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

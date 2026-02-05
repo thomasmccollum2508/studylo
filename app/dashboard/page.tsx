@@ -144,25 +144,37 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 transition-colors duration-300">
-          <div className="flex items-center justify-between">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-8 py-4 transition-colors duration-300 shrink-0">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             {/* Search Bar */}
-            <div className="flex-1 max-w-2xl">
+            <div className="flex-1 w-full min-w-0 max-w-2xl">
               <div className="relative">
-                <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 shrink-0" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M14 14L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
                 <input
                   type="text"
                   placeholder="Search study sets, flashcards, quizzes..."
-                  className="w-full pl-12 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                  className="w-full min-w-0 pl-12 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
                 />
               </div>
             </div>
 
             {/* Right Icons */}
-            <div className="flex items-center gap-4 ml-6">
+            <div className="flex items-center gap-2 md:gap-4 md:ml-6 shrink-0">
+              {/* Create study set (plus) */}
+              <button
+                type="button"
+                onClick={() => setShowCreateStudySetChoice(true)}
+                className="p-2 rounded-lg bg-[#0055FF] hover:bg-[#0044CC] text-white transition-colors hover:scale-105 active:scale-95"
+                aria-label="Create study set"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 4v12M4 10h12" />
+                </svg>
+              </button>
+
               {/* Dark Mode Toggle */}
               <button
                 onClick={toggleTheme}
@@ -214,13 +226,6 @@ export default function Dashboard() {
                 <span className="absolute inset-0 rounded-lg bg-blue-500 opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-300 pointer-events-none"></span>
               </button>
 
-              <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M10 3C10 3 8 3 8 5C8 6 8 10 6 10C4 10 4 8 4 8V12C4 12 4 10 6 10C8 10 8 14 8 15C8 17 10 17 10 17C10 17 12 17 12 15C12 14 12 10 14 10C16 10 16 12 16 12V8C16 8 16 10 14 10C12 10 12 6 12 5C12 3 10 3 10 3Z" stroke="currentColor" strokeWidth="1.5"/>
-                </svg>
-                <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
-              </button>
-              
               <Link
                 href="/settings"
                 className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -236,19 +241,19 @@ export default function Dashboard() {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-8">
-            <div className="flex gap-6">
+        <main className="flex-1 overflow-y-auto min-h-0">
+          <div className="p-4 md:p-8">
+            <div className="flex flex-col gap-6 md:flex-row">
               {/* Main Column */}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 {/* AI-Powered Learning Banner */}
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl p-8 mb-6 shadow-sm border border-blue-100 dark:border-blue-800/50 transition-colors">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">{loading ? 'Loading…' : `${greeting()}, ${userName || 'there'}! 👋`}</h1>
-                  <p className="text-gray-700 dark:text-gray-300 text-lg">Ready to crush your study goals? Your AI study buddy is here to help you learn faster and remember longer.</p>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl p-6 md:p-8 mb-6 shadow-sm border border-blue-100 dark:border-blue-800/50 transition-colors">
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3 break-words">{loading ? 'Loading…' : `${greeting()}, ${userName || 'there'}! 👋`}</h1>
+                  <p className="text-gray-700 dark:text-gray-300 text-base md:text-lg break-words">Ready to crush your study goals? Your AI study buddy is here to help you learn faster and remember longer.</p>
                 </div>
 
                 {/* Stats Cards - all start at 0, update from user data */}
-                <div className="grid grid-cols-4 gap-4 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                   <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
@@ -304,11 +309,11 @@ export default function Dashboard() {
 
                 {/* Primary Create Study Set CTA */}
                 <div className="mb-8">
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl p-8 border border-blue-100 dark:border-blue-800/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Create Your Study Set</h2>
-                        <p className="text-gray-700 dark:text-gray-300 mb-6">Upload your notes and Studylo turns them into a complete study set with flashcards, practice tests, and more.</p>
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl p-6 md:p-8 border border-blue-100 dark:border-blue-800/50 transition-colors">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 break-words">Create Your Study Set</h2>
+                        <p className="text-gray-700 dark:text-gray-300 mb-4 md:mb-6 break-words">Upload your notes and Studylo turns them into a complete study set with flashcards, practice tests, and more.</p>
                         <button
                           type="button"
                           onClick={() => setShowCreateStudySetChoice(true)}
@@ -325,15 +330,15 @@ export default function Dashboard() {
                 </div>
 
                 {/* Recent Study Sets - from user data, empty state when none */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <div className="min-w-0">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
                         <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
                       </svg>
-                      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Study Sets</h2>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 break-words">Recent Study Sets</h2>
                     </div>
-                    <Link href="/my-study-sets" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm flex items-center gap-1 transition-colors">
+                    <Link href="/my-study-sets" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm flex items-center gap-1 transition-colors shrink-0">
                       View all
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -362,24 +367,24 @@ export default function Dashboard() {
                           <Link
                             key={set.id}
                             href={`/my-study-sets/${set.id}`}
-                            className="block bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                            className="block bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer"
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4 flex-1">
-                                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex items-center gap-4 flex-1 min-w-0">
+                                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg shrink-0">
                                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M4 4.5C4 3.67157 4.67157 3 5.5 3H14.5C15.3284 3 16 3.67157 16 4.5V17L10 14L4 17V4.5Z" fill="#0055FF"/>
                                   </svg>
                                 </div>
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{set.title}</h3>
-                                  <div className="flex items-center gap-3">
-                                    <span className={`px-2 py-1 ${subjectBadgeClass(sub)} text-xs font-medium rounded-full`}>{sub}</span>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1 break-words">{set.title}</h3>
+                                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                    <span className={`px-2 py-1 ${subjectBadgeClass(sub)} text-xs font-medium rounded-full shrink-0`}>{sub}</span>
                                     <span className="text-sm text-gray-500 dark:text-gray-400">{set.card_count ?? 0} cards</span>
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-4 shrink-0">
                                 <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
@@ -398,7 +403,7 @@ export default function Dashboard() {
               </div>
 
               {/* Right Sidebar */}
-              <div className="w-80 space-y-6">
+              <div className="w-full md:w-80 flex-shrink-0 space-y-6">
                 {/* Continue Studying */}
                 <div>
                   <div className="flex items-center gap-2.5 mb-3">

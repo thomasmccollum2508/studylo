@@ -47,13 +47,13 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <AppLayout>
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 shrink-0 transition-colors duration-300">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-4 shrink-0 transition-colors duration-300">
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Manage your account and preferences</p>
         </header>
-        <div className="flex-1 flex overflow-hidden">
-          <nav className="w-52 shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-3 overflow-y-auto transition-colors">
-            <ul className="space-y-0.5">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+          <nav className="w-full md:w-52 shrink-0 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-3 overflow-y-auto transition-colors">
+            <ul className="flex flex-wrap gap-1 md:flex-col md:space-y-0.5">
               {SECTIONS.map(({ href, label }) => {
                 const isActive = pathname === href;
                 return (
@@ -73,8 +73,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               })}
             </ul>
           </nav>
-          <main className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900 transition-colors">
-            <div className="max-w-2xl">{children}</div>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 bg-gray-50 dark:bg-gray-900 transition-colors min-w-0">
+            <div className="max-w-2xl w-full min-w-0">{children}</div>
           </main>
         </div>
       </div>
