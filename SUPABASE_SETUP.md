@@ -38,8 +38,9 @@ Do not commit `.env.local`; it’s already in `.gitignore`.
 2. Set **Site URL** to `http://localhost:3000` (or your production URL).
 3. Add **Redirect URLs**:
    - `http://localhost:3000/auth/callback`
-   - Add your production URL when you deploy (e.g. `https://yourdomain.com/auth/callback`).
-4. Save. Without this, email confirmation and OAuth redirects will fail.
+   - `http://localhost:3000/auth/recovery` (for “Forgot password” reset links)
+   - Add your production URLs when you deploy (e.g. `https://yourdomain.com/auth/callback`, `https://yourdomain.com/auth/recovery`).
+4. Save. Without this, email confirmation, password reset, and OAuth redirects will fail.
 
 ## Step 6: Database tables for app data (required for dashboard / my study sets)
 

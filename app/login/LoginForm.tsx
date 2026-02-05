@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTheme } from '@/app/providers/ThemeProvider';
 
 export default function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { theme } = useTheme();
   const [email, setEmail] = useState('');
@@ -44,10 +43,8 @@ export default function LoginForm() {
       
       if (data?.session) {
         const next = searchParams.get('next') ?? '/dashboard';
-        // Let the browser commit auth cookies before navigating (fixes production redirect)
-        await new Promise((r) => setTimeout(r, 100));
-        router.push(next);
-        router.refresh();
+        // Full page navigation so the next request includes auth cookies (fixes redirect after login)
+        window.location.href = next;
         return;
       } else {
         setError('Login failed. No session created.');

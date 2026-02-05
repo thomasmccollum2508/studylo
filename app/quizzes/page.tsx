@@ -72,12 +72,16 @@ export default function Quizzes() {
                 <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
               </button>
               
-              <button className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg transition-colors">
+              <Link
+                href="/settings"
+                className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                aria-label="Settings"
+              >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M5 17C5 14.2386 7.23858 12 10 12C12.7614 12 15 14.2386 15 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Link>
             </div>
           </div>
         </header>
