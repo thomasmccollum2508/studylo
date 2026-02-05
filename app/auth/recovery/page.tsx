@@ -25,8 +25,9 @@ export default function AuthRecoveryPage() {
       setHasSession(false);
       return;
     }
+    const client = supabase;
     function checkSession() {
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      client.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           setHasSession(true);
           return;

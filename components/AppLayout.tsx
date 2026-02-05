@@ -72,7 +72,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-x-hidden">
+    <div className="flex min-h-screen h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       {/* Backdrop when mobile menu is open */}
       {mobileMenuOpen && (
         <button
@@ -83,15 +83,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Left column: sidebar — hidden on mobile (hamburger only), in-flow on desktop */}
+      {/* Left column: sidebar (fixed overlay on mobile, in-flow on desktop) */}
       <div
         className={`flex flex-col shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-200 ease-out
           fixed md:relative inset-y-0 left-0 z-40 w-64
           -translate-x-full md:translate-x-0
           ${mobileMenuOpen ? 'translate-x-0' : ''}
           ${collapsed && !mobileMenuOpen ? 'md:w-14' : 'md:w-64'}
-          pointer-events-none md:pointer-events-auto
-          ${mobileMenuOpen ? 'pointer-events-auto' : ''}
         `}
       >
         <div className="flex items-center shrink-0 w-full pt-3">
@@ -107,7 +105,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
           {showFullSidebar && (
             <div className="flex-1 min-w-0 pr-3">
-              <Link href="/" className="flex items-center">
+              <Link href="/" className="flex items-center" onClick={closeMobileMenu}>
                 <img
                   src={theme === 'dark' ? '/studylo%20logo%20dark.png' : '/studylo%20logo%202.png'}
                   alt="StudyLo Logo"
@@ -182,10 +180,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      {/* Main content — full width on mobile (sidebar is overlay-only) */}
-      <div className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto min-w-0 w-full">
-        {/* Mobile only: hamburger bar (sidebar is hidden until menu is opened) */}
-        <header className="md:hidden flex items-center gap-2 shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 w-full" aria-label="Dashboard menu">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto min-w-0">
+        {/* Mobile: hamburger bar (sidebar hidden, show this to open menu) */}
+        <div className="md:hidden flex items-center gap-2 shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <button
             type="button"
             onClick={openMobileMenu}
@@ -203,7 +201,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className="h-9 w-auto"
             />
           </Link>
-        </header>
+        </div>
         {children}
       </div>
     </div>
