@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyALciv_C3rhtP1BDuQRT-g2ha1s8vMh0zg';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const BASE_SYSTEM = `You are a friendly, knowledgeable study assistant for StudyLo. You help students with:
 - Understanding notes, concepts, and definitions
