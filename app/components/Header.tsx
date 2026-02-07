@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
@@ -9,6 +9,7 @@ import { useTheme } from '@/app/providers/ThemeProvider';
 
 export default function Header() {
   const { theme } = useTheme();
+  const pathname = usePathname();
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [solutionsOpen, setSolutionsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -39,7 +40,7 @@ export default function Header() {
         {/* Logo */}
         <Link href="/" className="flex items-center flex-shrink-0 transition-all duration-300 hover:-translate-y-0.5 cursor-pointer" onClick={() => setMobileMenuOpen(false)}>
           <img 
-            src={theme === 'dark' ? '/studylo%20logo%20dark.png' : '/studylo%20logo%202.png'} 
+            src={pathname === '/' ? '/studylo%20logo%202.png' : theme === 'dark' ? '/studylo%20logo%20dark.png' : '/studylo%20logo%202.png'} 
             alt="StudyLo Logo" 
             className="h-10 md:h-12 w-auto"
           />
